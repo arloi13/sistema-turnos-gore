@@ -206,48 +206,54 @@
         const videoFondo = document.getElementById('video-fondo');
         const slides = document.querySelectorAll('.media-slide');
         
-        let slideInterval = null;
+        let mediaInterval = null;
         let currentSlideIndex = 0;
-        let modoReproduccion = 'video'; // Inicia reproduciendo el video
 
         function ocultarTodoMultimedia() {
             videoFondo.classList.remove('active');
             slides.forEach(s => s.classList.remove('active'));
         }
 
-        function iniciarReproduccionVideo() {
-            modoReproduccion = 'video';
+        function iniciarCicloMultimedia() {
+            if (!sistemaIniciado) return;
+            
+            // 1. Mostrar y reproducir el video
             ocultarTodoMultimedia();
             videoFondo.classList.add('active');
             videoFondo.currentTime = 0;
             videoFondo.play().catch(e => console.log("Video play error:", e));
+
+            // Si el video termina normalmente, pasamos a las fotos
+            videoFondo.onended = function() {
+                transicionarAFotos();
+            };
+
+            // PLAN DE SEGURIDAD: Si por alguna razón el evento 'ended' falla o el video se traba,
+            // forzamos el salto a las fotos a los 30 segundos máximos de reproducción de video.
+            setTimeout(() => {
+                if (videoFondo.classList.contains('active')) {
+                    transicionarAFotos();
+                }
+            }, 30000);
         }
 
-        // Cuando termina el único video, arranca la secuencia de las 3 fotos
-        videoFondo.onended = function() {
-            if (modoReproduccion !== 'video') return;
-            iniciarSecuenciaFotos();
-        };
-
-        function iniciarSecuenciaFotos() {
-            modoReproduccion = 'fotos';
-            ocultarTodoMultimedia();
+        function transicionarAFotos() {
+            videoFondo.pause();
             currentSlideIndex = 0;
             mostrarSlideActual();
 
-            if (slideInterval) clearInterval(slideInterval);
-            slideInterval = setInterval(() => {
-                if (modoReproduccion !== 'fotos') return;
-                
+            // Rotar entre las 3 fotos cada 30 segundos
+            if (mediaInterval) clearInterval(mediaInterval);
+            mediaInterval = setInterval(() => {
                 currentSlideIndex++;
                 if (currentSlideIndex >= slides.length) {
-                    // Terminaron las 3 fotos, limpiamos el intervalo y volvemos al video
-                    clearInterval(slideInterval);
-                    iniciarReproduccionVideo();
+                    // Terminaron las 3 fotos, volvemos a iniciar el ciclo con el video
+                    clearInterval(mediaInterval);
+                    iniciarCicloMultimedia();
                 } else {
                     mostrarSlideActual();
                 }
-            }, 30000); // 30 segundos por foto
+            }, 30000); 
         }
 
         function mostrarSlideActual() {
@@ -266,7 +272,7 @@
             sistemaIniciado = true;
 
             videoFondo.muted = false;
-            iniciarReproduccionVideo();
+            iniciarCicloMultimedia();
 
             const overlay = document.getElementById('overlay-inicio');
             if (overlay) {
