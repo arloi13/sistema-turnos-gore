@@ -62,13 +62,11 @@ class HistorialAtencion(db.Model):
     dni = db.Column(db.String(50))
 
 with app.app_context():
-    db.create_all()
     try:
-        db.session.execute(text('ALTER TABLE tickets ADD COLUMN IF NOT EXISTS preferencial BOOLEAN DEFAULT FALSE;'))
-        db.session.commit()
+        db.create_all()
     except Exception as e:
         db.session.rollback()
-        print("Nota de migración automática:", e)
+        print("Nota al iniciar base de datos:", e)
 
 @app.route('/obtener_estado_colas')
 def obtener_estado_colas():
@@ -195,7 +193,6 @@ def index():
         dni = request.form.get('dni')
         preferencial = True if request.form.get('preferencial') == 'on' else False
         if dni:
-            # Prevención de duplicados exactos si se envía dos veces seguidas con el mismo DNI en espera
             ultimo_ticket = Ticket.query.filter_by(dni=dni, estado='ESPERA').order_by(Ticket.id.desc()).first()
             if not ultimo_ticket:
                 max_t = db.session.query(db.func.max(Ticket.turno)).scalar()
@@ -221,7 +218,6 @@ def registro():
         dni = request.form.get('dni')
         preferencial = True if request.form.get('preferencial') == 'on' else False
         if dni:
-            # Prevención de duplicados exactos si se reenvía el formulario rápidamente
             ultimo_ticket = Ticket.query.filter_by(dni=dni, estado='ESPERA').order_by(Ticket.id.desc()).first()
             if not ultimo_ticket:
                 max_t = db.session.query(db.func.max(Ticket.turno)).scalar()
