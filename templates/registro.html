@@ -1,0 +1,32 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <title>Registro - GORE Cajamarca</title>
+    <link rel="stylesheet" href="https://stackpath.bootstrapcdn.com/bootstrap/4.5.2/css/bootstrap.min.css">
+    <style>
+        body { background: #f0f4f8; display: flex; align-items: center; justify-content: center; height: 100vh; }
+        .card-registro { width: 100%; max-width: 400px; padding: 30px; background: white; border-radius: 15px; box-shadow: 0 10px 25px rgba(0,0,0,0.1); border-top: 8px solid #004a99; }
+    </style>
+</head>
+<body>
+    <div class="card-registro">
+        <h3 class="text-center mb-4">Registro de Turno</h3>
+        {% if mensaje %}
+            <div class="alert alert-success">{{ mensaje }}</div>
+        {% endif %}
+        <form method="POST">
+            <div class="form-group">
+                <label>Ingrese su DNI:</label>
+                <input type="text" class="form-control" name="dni" required maxlength="8" placeholder="Ej: 12345678">
+            </div>
+            <div class="form-group form-check my-3">
+                <input type="checkbox" class="form-check-input" id="preferencial" name="preferencial">
+                <label class="form-check-label" for="preferencial">¿Es turno preferencial?</label>
+            </div>
+            <button type="submit" class="btn btn-primary btn-block">Generar Turno</button>
+        </form>
+        <a href="/registro" class="btn btn-link btn-block mt-2">Limpiar formulario</a>
+    </div>
+</body>
+</html>

@@ -1,0 +1,232 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <title>Historial y Estadísticas - GORE Cajamarca</title>
+    <link rel="stylesheet" href="https://stackpath.bootstrapcdn.com/bootstrap/4.5.2/css/bootstrap.min.css">
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600;700;800&display=swap" rel="stylesheet">
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <style>
+        :root {
+            --azul-gore: #004a99;
+            --azul-oscuro: #003366;
+            --dorado-gore: #c5a059;
+            --fondo-gris: #f4f4f4;
+        }
+        body { 
+            font-family: 'Inter', 'Segoe UI', sans-serif; 
+            padding: 0; 
+            margin: 0;
+            background: var(--fondo-gris); 
+        }
+        header {
+            background: var(--azul-gore);
+            color: white;
+            padding: 12px 30px;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            box-shadow: 0 4px 12px rgba(0,0,0,0.15);
+            margin-bottom: 25px;
+        }
+        .header-title {
+            display: flex;
+            align-items: center;
+            gap: 15px;
+        }
+        .logo-img {
+            height: 45px;
+            object-fit: contain;
+            filter: brightness(0) invert(1);
+        }
+        header h2 {
+            margin: 0;
+            font-size: 1.3rem;
+            letter-spacing: 0.5px;
+            color: white;
+            text-align: left;
+        }
+        h4 { color: var(--azul-gore); text-align: center; }
+        .controles { margin-bottom: 20px; text-align: center; }
+        table { width: 100%; border-collapse: collapse; background: white; box-shadow: 0 0 10px rgba(0,0,0,0.1); }
+        th, td { padding: 12px; border: 1px solid #ddd; text-align: center; }
+        th { background-color: var(--azul-gore); color: white; }
+        .card { margin-bottom: 30px; padding: 20px; box-shadow: 0 0 10px rgba(0,0,0,0.05); background: white; border-radius: 10px; }
+        .btn-export { padding: 10px 20px; background: #28a745; color: white; border: none; cursor: pointer; border-radius: 5px; }
+        .chart-container { position: relative; width: 100%; max-width: 600px; margin: 20px auto; height: 300px; }
+    </style>
+</head>
+<body>
+
+    <header>
+        <div class="header-title">
+            <img src="{{ url_for('static', filename='logo.png') }}" alt="GORE Cajamarca" class="logo-img">
+            <h2>Reporte de Gestión - GORE Cajamarca</h2>
+        </div>
+        <span id="reloj" style="font-weight: 600; font-size: 1.1rem;">00:00:00</span>
+    </header>
+
+    <div class="container">
+        <!-- Gráfico de Comparación -->
+        <div class="card">
+            <h4>Comparativa de Atenciones por Ventanilla</h4>
+            <div class="chart-container">
+                <canvas id="graficoVentanillas"></canvas>
+            </div>
+        </div>
+
+        <div class="card">
+            <h4>Atenciones por Colaborador</h4>
+            <div class="d-flex justify-content-center mb-3">
+                <select id="filtroEstadistica" class="form-control w-25" onchange="cargarEstadisticas()">
+                    <option value="">Total Histórico</option>
+                    <option value="dia">Hoy</option>
+                    <option value="mes">Este Mes</option>
+                </select>
+            </div>
+            <table class="table table-bordered">
+                <thead>
+                    <tr>
+                        <th>Colaborador</th>
+                        <th>Ventanilla</th>
+                        <th>Total Atenciones</th>
+                    </tr>
+                </thead>
+                <tbody id="tabla-estadisticas">
+                    <!-- Dinámico -->
+                </tbody>
+            </table>
+        </div>
+
+        <!-- Historial Detallado -->
+        <div class="controles">
+            <label>Filtrar historial por fecha: </label>
+            <input type="date" id="filtroFecha" onchange="filtrarTabla()">
+            <button class="btn-export" onclick="exportarExcel('tabla-historial', 'Historial_Atenciones')">Exportar a Excel</button>
+        </div>
+        
+        <table id="tabla-historial">
+            <thead>
+                <tr>
+                    <th>ID</th>
+                    <th>Turno</th>
+                    <th>Detalle</th>
+                    <th>DNI</th>
+                    <th>Fecha</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for registro in registros %}
+                <tr>
+                    <td>{{ registro.id }}</td>
+                    <td>{{ registro.turno }}</td>
+                    <td>{{ registro.ventanilla }}</td>
+                    <td>{{ registro.dni }}</td>
+                    <td class="fecha-celda">{{ registro.fecha.strftime('%Y-%m-%d') if registro.fecha else '' }}</td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+
+    <script>
+        let miGrafico = null;
+
+        function actualizarReloj() {
+            document.getElementById('reloj').innerText = new Date().toLocaleTimeString('es-ES');
+        }
+        setInterval(actualizarReloj, 1000);
+        actualizarReloj();
+
+        function cargarEstadisticas() {
+            let filtro = document.getElementById("filtroEstadistica").value;
+            fetch('/estadisticas?filtro=' + filtro)
+                .then(r => r.json())
+                .then(data => {
+                    let tbody = document.getElementById("tabla-estadisticas");
+                    tbody.innerHTML = "";
+                    
+                    let labels = [];
+                    let totales = [];
+
+                    data.forEach(item => {
+                        tbody.innerHTML += `<tr>
+                            <td>${item.colaborador}</td>
+                            <td>${item.ventanilla}</td>
+                            <td><strong>${item.total}</strong></td>
+                        </tr>`;
+
+                        labels.push(item.ventanilla);
+                        totales.push(item.total);
+                    });
+
+                    actualizarGrafico(labels, totales);
+                });
+        }
+
+        function actualizarGrafico(labels, data) {
+            const ctx = document.getElementById('graficoVentanillas').getContext('2d');
+            
+            if (miGrafico) {
+                miGrafico.destroy();
+            }
+
+            miGrafico = new Chart(ctx, {
+                type: 'bar',
+                data: {
+                    labels: labels.length > 0 ? labels : ["Ventanilla 01", "Ventanilla 02", "Ventanilla 03"],
+                    datasets: [{
+                        label: 'Personas Atendidas',
+                        data: data.length > 0 ? data : [0, 0, 0],
+                        backgroundColor: ['#004a99', '#c5a059', '#003366'],
+                        borderColor: ['#003366', '#a68344', '#001f3f'],
+                        borderWidth: 1,
+                        borderRadius: 5
+                    }]
+                },
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    scales: {
+                        y: {
+                            beginAtZero: true,
+                            ticks: {
+                                stepSize: 1
+                            }
+                        }
+                    },
+                    plugins: {
+                        legend: {
+                            display: false
+                        }
+                    }
+                }
+            });
+        }
+
+        function filtrarTabla() {
+            let input = document.getElementById("filtroFecha").value;
+            let tabla = document.getElementById("tabla-historial");
+            let filas = tabla.getElementsByTagName("tr");
+            for (let i = 1; i < filas.length; i++) {
+                let celdaFecha = filas[i].getElementsByTagName("td")[4].innerText;
+                filas[i].style.display = (input === "" || celdaFecha === input) ? "" : "none";
+            }
+        }
+
+        function exportarExcel(idTabla, nombreArchivo) {
+            let tabla = document.getElementById(idTabla);
+            let html = '<table>' + tabla.innerHTML + '</table>';
+            let url = 'data:application/vnd.ms-excel,' + encodeURIComponent(html);
+            let link = document.createElement('a');
+            link.download = nombreArchivo + '.xls';
+            link.href = url;
+            link.click();
+        }
+
+        window.onload = function() {
+            cargarEstadisticas();
+        };
+    </script>
+</body>
+</html>

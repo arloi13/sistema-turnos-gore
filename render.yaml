@@ -1,0 +1,6 @@
+services:
+  - type: web
+    name: sistema-turnos-gore
+    env: python
+    buildCommand: "pip install -r requirements.txt"
+    startCommand: "gunicorn wsgi:app"

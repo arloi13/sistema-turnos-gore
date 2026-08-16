@@ -1,0 +1,494 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Panel de Operador - GORE Cajamarca</title>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600;700;800&display=swap" rel="stylesheet">
+    <style>
+        :root {
+            --azul-gore: #004a99;
+            --azul-oscuro: #003366;
+            --dorado-gore: #c5a059;
+            --fondo-gris: #f0f4f8;
+        }
+        body {
+            font-family: 'Inter', sans-serif;
+            background: var(--fondo-gris);
+            margin: 0;
+            padding: 0;
+            display: flex;
+            flex-direction: column;
+            height: 100vh;
+            overflow: hidden;
+        }
+        header {
+            background: var(--azul-gore);
+            color: white;
+            padding: 12px 30px;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            box-shadow: 0 4px 12px rgba(0,0,0,0.15);
+            z-index: 10;
+        }
+        .header-title {
+            display: flex;
+            align-items: center;
+            gap: 15px;
+        }
+        .logo-img {
+            height: 55px;
+            object-fit: contain;
+            filter: brightness(0) invert(1);
+        }
+        header h2 {
+            margin: 0;
+            font-size: 1.3rem;
+            letter-spacing: 0.5px;
+        }
+        .main-container {
+            flex: 1;
+            padding: 20px 30px;
+            max-width: 1400px;
+            margin: 0 auto;
+            width: 100%;
+            box-sizing: border-box;
+            display: grid;
+            grid-template-columns: 2.2fr 1.2fr;
+            gap: 20px;
+            overflow: hidden;
+        }
+        .columna-principal {
+            display: flex;
+            flex-direction: column;
+            gap: 15px;
+            overflow-y: auto;
+            padding-right: 5px;
+        }
+        .stats-bar {
+            display: grid;
+            grid-template-columns: repeat(2, 1fr);
+            gap: 15px;
+        }
+        .stat-card {
+            background: white;
+            padding: 12px 20px;
+            border-radius: 12px;
+            box-shadow: 0 4px 12px rgba(0,0,0,0.04);
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            border-left: 5px solid var(--dorado-gore);
+        }
+        .stat-card span {
+            font-size: 0.8rem;
+            color: #666;
+            font-weight: 700;
+            letter-spacing: 0.5px;
+        }
+        
+        .panel-operador-wrapper {
+            display: flex;
+            justify-content: center;
+            margin-top: 5px;
+        }
+        .card {
+            background: white;
+            padding: 25px 20px;
+            border-radius: 16px;
+            box-shadow: 0 8px 20px rgba(0,0,0,0.06);
+            text-align: center;
+            border-top: 8px solid var(--azul-gore);
+            width: 100%;
+            max-width: 500px;
+            display: flex;
+            flex-direction: column;
+            justify-content: space-between;
+        }
+        .card.preferencial-card {
+            border-top: 8px solid var(--dorado-gore);
+        }
+        .card h3 {
+            color: var(--azul-gore);
+            margin: 0 0 5px 0;
+            font-size: 1.3rem;
+        }
+        .card.preferencial-card h3 {
+            color: var(--dorado-gore);
+        }
+        .operador-tag {
+            background: #eef3f9;
+            color: var(--azul-gore);
+            padding: 5px 14px;
+            border-radius: 20px;
+            font-size: 0.9rem;
+            font-weight: 700;
+            display: inline-block;
+            margin-bottom: 10px;
+        }
+        .turno-actual {
+            font-size: 4.2rem;
+            font-weight: 800;
+            color: var(--azul-gore);
+            margin: 5px 0;
+            line-height: 1;
+        }
+        .card.preferencial-card .turno-actual {
+            color: #b08d47;
+        }
+        button {
+            background: var(--azul-gore);
+            color: white;
+            border: none;
+            padding: 12px;
+            font-size: 0.95rem;
+            font-weight: bold;
+            border-radius: 10px;
+            cursor: pointer;
+            width: 100%;
+            transition: background 0.2s, transform 0.1s;
+            box-shadow: 0 4px 10px rgba(0,74,153,0.2);
+            margin-top: 8px;
+        }
+        button:hover {
+            background: var(--azul-oscuro);
+            transform: translateY(-2px);
+        }
+        button:active {
+            transform: translateY(0);
+        }
+        .btn-preferencial {
+            background: var(--dorado-gore);
+            box-shadow: 0 4px 10px rgba(197,160,89,0.3);
+        }
+        .btn-preferencial:hover {
+            background: #b08d47;
+        }
+        .btn-repetir {
+            background: #d97706;
+            box-shadow: 0 4px 10px rgba(217, 119, 6, 0.3);
+        }
+        .btn-repetir:hover {
+            background: #b45309;
+        }
+
+        .info-institucional {
+            background: #f8fafc;
+            border-radius: 8px;
+            padding: 8px 10px;
+            margin-top: 10px;
+            display: flex;
+            flex-direction: column;
+            gap: 4px;
+            border-left: 3px solid var(--dorado-gore);
+            text-align: left;
+        }
+        .info-row {
+            display: flex;
+            justify-content: space-between;
+            font-size: 0.75rem;
+        }
+        .info-row span:first-child {
+            color: #666;
+            font-weight: 600;
+        }
+        .info-row span:last-child {
+            color: var(--azul-gore);
+            font-weight: 700;
+        }
+        
+        .columna-lateral {
+            display: flex;
+            flex-direction: column;
+            gap: 15px;
+            height: calc(100vh - 110px);
+        }
+        .panel-lateral {
+            background: white;
+            border-radius: 16px;
+            padding: 15px;
+            box-shadow: 0 8px 20px rgba(0,0,0,0.06);
+            display: flex;
+            flex-direction: column;
+            flex: 1;
+            overflow: hidden;
+        }
+        .panel-lateral.espera { border-right: 6px solid var(--azul-gore); }
+        .panel-lateral.archivados { border-right: 6px solid #d9534f; }
+
+        .panel-lateral h4 {
+            color: var(--azul-gore);
+            margin-top: 0;
+            font-size: 1rem;
+            border-bottom: 2px solid #eee;
+            padding-bottom: 8px;
+            margin-bottom: 10px;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+        .badge-contador {
+            background: #eef3f9;
+            color: var(--azul-gore);
+            padding: 2px 8px;
+            border-radius: 10px;
+            font-size: 0.8rem;
+        }
+        .lista-scroll {
+            flex: 1;
+            overflow-y: auto;
+            display: flex;
+            flex-direction: column;
+            gap: 8px;
+            padding-right: 2px;
+        }
+        .item-cola {
+            background: #f8fafc;
+            padding: 8px 12px;
+            border-radius: 8px;
+            border-left: 4px solid var(--azul-gore);
+            font-size: 0.85rem;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            font-weight: 600;
+        }
+        .item-archivado {
+            background: #fff5f5;
+            padding: 8px 12px;
+            border-radius: 8px;
+            border-left: 4px solid #d9534f;
+            font-size: 0.85rem;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            color: #c53030;
+            font-weight: 600;
+        }
+    </style>
+</head>
+<body>
+
+    <header>
+        <div class="header-title">
+            <img src="{{ url_for('static', filename='logo.png') }}" alt="GORE Cajamarca" class="logo-img">
+            <h2 id="header-titulo-operador">Panel de Control - Operador</h2>
+        </div>
+        <span id="reloj" style="font-weight: 600; font-size: 1.1rem;">00:00:00</span>
+    </header>
+
+    <div class="main-container">
+        <div class="columna-principal">
+            <div class="stats-bar">
+                <div class="stat-card">
+                    <span>ESTADO DEL SISTEMA</span>
+                    <strong style="color: #28a745; font-size: 0.9rem;">● EN LÍNEA</strong>
+                </div>
+                <div class="stat-card">
+                    <span>PANTALLA EXTERNA</span>
+                    <button onclick="window.open('/pantalla', '_blank')" style="padding: 5px 10px; font-size: 0.8rem; width: auto; margin: 0;">Abrir TV 📺</button>
+                </div>
+            </div>
+
+            <div class="panel-operador-wrapper">
+                <div id="card-operador" class="card">
+                    <div>
+                        <h3 id="lbl-ventanilla">VENTANILLA</h3>
+                        <div id="lbl-nombre" class="operador-tag">Operador</div>
+                        <div id="display-turno" class="turno-actual">0</div>
+                    </div>
+                    <div>
+                        <div id="botones-accion"></div>
+                        <div class="info-institucional">
+                            <div class="info-row">
+                                <span>Entidad:</span>
+                                <span>GORE Cajamarca</span>
+                            </div>
+                            <div class="info-row">
+                                <span>Área:</span>
+                                <span>SECRETARIA GENERAL - MESA PARTES</span>
+                            </div>
+                            <div class="info-row">
+                                <span>Atajos Teclado:</span>
+                                <span style="color: var(--azul-gore);">[+] Siguiente | [-] Repetir (3x = Archivar)</span>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <div class="columna-lateral">
+            <!-- Barra 1: Cola en Espera -->
+            <div class="panel-lateral espera">
+                <h4>Tickets en Espera <span id="contador-espera" class="badge-contador">0</span></h4>
+                <div id="lista-espera" class="lista-scroll">
+                    <div style="color: #888; text-align: center; margin-top: 20px; font-size: 0.8rem;">No hay tickets en espera.</div>
+                </div>
+            </div>
+
+            <!-- Barra 2: Tickets Archivados / No atendidos -->
+            <div class="panel-lateral archivados">
+                <h4>Tickets Archivados (3 Llamados) <span id="contador-archivados" class="badge-contador">0</span></h4>
+                <div id="lista-archivados" class="lista-scroll">
+                    <div style="color: #888; text-align: center; margin-top: 20px; font-size: 0.8rem;">No hay tickets archivados.</div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        const operadorActual = "{{ operador|default('Sandra') }}"; 
+
+        const datosConfig = {
+            "Yajaira": { ventanilla: "Ventanilla 01", preferencial: false },
+            "Sandra": { ventanilla: "Ventanilla 02", preferencial: false },
+            "Jhoe": { ventanilla: "Ventanilla 03", preferencial: true }
+        };
+
+        const config = datosConfig[operadorActual] || datosConfig["Sandra"];
+
+        document.getElementById('header-titulo-operador').innerText = `Panel de Control - ${operadorActual}`;
+        document.getElementById('lbl-ventanilla').innerText = config.ventanilla.toUpperCase();
+        document.getElementById('lbl-nombre').innerText = operadorActual;
+
+        if (config.preferencial) {
+            document.getElementById('card-operador').classList.add('preferencial-card');
+        }
+
+        let contenedorBotones = document.getElementById('botones-accion');
+        if (config.preferencial) {
+            contenedorBotones.innerHTML = `
+                <button onclick="llamarSiguiente('${config.ventanilla}', 'normal')">Siguiente Turno 📢 [+]</button>
+                <button class="btn-preferencial" onclick="llamarSiguiente('${config.ventanilla}', 'preferencial')">Llamar Preferencial 🌟</button>
+                <button class="btn-repetir" onclick="repetirTurno('${config.ventanilla}')">📢 Repetir Llamado [-]</button>
+            `;
+        } else {
+            contenedorBotones.innerHTML = `
+                <button onclick="llamarSiguiente('${config.ventanilla}', 'normal')">Siguiente Turno 📢 [+]</button>
+                <button class="btn-repetir" onclick="repetirTurno('${config.ventanilla}')">📢 Repetir Llamado [-]</button>
+            `;
+        }
+
+        function actualizarReloj() {
+            document.getElementById('reloj').innerText = new Date().toLocaleTimeString('es-ES');
+        }
+        setInterval(actualizarReloj, 1000);
+        actualizarReloj();
+
+        // Sincronizar datos de colas, turnos y archivados con el backend
+        function actualizarDatosPanel() {
+            // Si la pestaña está oculta, no hacemos fetch para ahorrar ancho de banda
+            if (document.hidden) return;
+
+            fetch('/obtener_estado_colas?ventanilla=' + encodeURIComponent(config.ventanilla))
+                .then(r => r.json())
+                .then(data => {
+                    if (data.turno_actual) {
+                        let el = document.getElementById('display-turno');
+                        if (el && data.turno_actual > 0) el.innerText = data.turno_actual;
+                    }
+
+                    let contenedorEspera = document.getElementById('lista-espera');
+                    let badgeEspera = document.getElementById('contador-espera');
+                    if (data.cola_espera && data.cola_espera.length > 0) {
+                        badgeEspera.innerText = data.cola_espera.length;
+                        contenedorEspera.innerHTML = data.cola_espera.map(t => `
+                            <div class="item-cola">
+                                <span>Ticket #${t}</span>
+                                <span style="font-size:0.75rem; color:#666;">En espera</span>
+                            </div>
+                        `).join('');
+                    } else {
+                        badgeEspera.innerText = "0";
+                        contenedorEspera.innerHTML = `<div style="color: #888; text-align: center; margin-top: 20px; font-size: 0.8rem;">No hay tickets en espera.</div>`;
+                    }
+
+                    let contenedorArchivados = document.getElementById('lista-archivados');
+                    let badgeArchivados = document.getElementById('contador-archivados');
+                    if (data.cola_archivados && data.cola_archivados.length > 0) {
+                        badgeArchivados.innerText = data.cola_archivados.length;
+                        contenedorArchivados.innerHTML = data.cola_archivados.map(t => `
+                            <div class="item-archivado">
+                                <span>Ticket #${t}</span>
+                                <span style="font-size:0.75rem; background:#fee2e2; padding:2px 6px; border-radius:4px;">Archivado (3x)</span>
+                            </div>
+                        `).join('');
+                    } else {
+                        badgeArchivados.innerText = "0";
+                        contenedorArchivados.innerHTML = `<div style="color: #888; text-align: center; margin-top: 20px; font-size: 0.8rem;">No hay tickets archivados.</div>`;
+                    }
+                })
+                .catch(err => console.error("Error sincronizando colas:", err));
+        }
+
+        function llamarSiguiente(ventanilla, tipo = 'normal') {
+            fetch(`/actualizar_turno/${encodeURIComponent(ventanilla)}?tipo=${tipo}`, {
+                method: 'POST'
+            })
+            .then(response => response.json())
+            .then(data => {
+                if (data.status === 'ok') {
+                    let el = document.getElementById('display-turno');
+                    if (el) el.innerText = data.turno;
+                    actualizarDatosPanel();
+                } else if (data.status === 'vacio') {
+                    alert("No hay ciudadanos en espera.");
+                } else {
+                    alert("Error: " + (data.mensaje || "Desconocido"));
+                }
+            })
+            .catch(error => console.error("Error en la petición:", error));
+        }
+
+        function repetirTurno(ventanilla) {
+            fetch(`/repetir_turno/${encodeURIComponent(ventanilla)}`, {
+                method: 'POST'
+            })
+            .then(async r => {
+                const data = await r.json();
+                if (r.ok && data.status === "ok") {
+                    let el = document.getElementById('display-turno');
+                    if (el) {
+                        el.style.transform = "scale(1.1)";
+                        setTimeout(() => el.style.transform = "scale(1)", 200);
+                    }
+                    if (data.archivado) {
+                        alert("El ticket alcanzó los 3 llamados y se ha archivado automáticamente. Pasando al siguiente.");
+                    }
+                    actualizarDatosPanel();
+                } else {
+                    alert("Aviso: " + (data.mensaje || "No hay ningún turno activo para repetir en esta ventanilla."));
+                }
+            })
+            .catch(error => console.error("Error al repetir:", error));
+        }
+
+        document.addEventListener('keydown', function(event) {
+            if (event.target.tagName === 'INPUT' || event.target.tagName === 'TEXTAREA') return;
+
+            if (event.key === '+' || event.code === 'NumpadAdd' || event.key === '=') {
+                event.preventDefault();
+                llamarSiguiente(config.ventanilla, 'normal');
+            } else if (event.key === '-' || event.code === 'NumpadSubtract' || event.key === '_') {
+                event.preventDefault();
+                repetirTurno(config.ventanilla);
+            }
+        });
+
+        // Evento para actualizar inmediatamente si el operador vuelve a enfocar la pestaña
+        document.addEventListener("visibilitychange", function() {
+            if (!document.hidden) {
+                actualizarDatosPanel();
+            }
+        });
+
+        window.onload = function() {
+            actualizarDatosPanel();
+            // Intervalo cambiado a 7 segundos (7000 ms) para reducir drásticamente el tráfico en Render
+            setInterval(actualizarDatosPanel, 7000); 
+        };
+    </script>
+</body>
+</html>

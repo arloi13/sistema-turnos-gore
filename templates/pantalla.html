@@ -1,0 +1,355 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <title>Sistema de Atención - GORE Cajamarca</title>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;700;800;900&display=swap" rel="stylesheet">
+    <style>
+        :root {
+            --rojo-ventanilla: #d9534f;
+            --verde-ventanilla: #5cb85c;
+            --azul-ventanilla: #0275d8;
+            --fondo-gris: #f4f6f9;
+        }
+
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body { 
+            font-family: 'Inter', sans-serif; 
+            background: var(--fondo-gris); 
+            display: flex; 
+            flex-direction: column; 
+            height: 100vh;
+            overflow: hidden;
+        }
+
+        /* Contenedor del video ocupando todo el espacio superior sin fondos negros */
+        .slider-container { 
+            width: 100%; 
+            flex: 1; 
+            overflow: hidden; 
+            position: relative; 
+            background-color: #000;
+        }
+
+        /* Usamos 100% en ambos ejes con fill para forzar a que cubra todo el espacio sin dejar huecos negros ni cortes ciegos */
+        #video-fondo {
+            width: 100%; 
+            height: 100%; 
+            object-fit: fill; 
+            position: absolute;
+            top: 0;
+            left: 0;
+        }
+        
+        #reloj {
+            position: absolute;
+            top: 25px;
+            left: 25px;
+            font-size: 2.2rem; 
+            font-weight: 800; 
+            color: #ffffff;
+            background: rgba(0, 0, 0, 0.55);
+            backdrop-filter: blur(6px);
+            padding: 8px 22px;
+            border-radius: 12px;
+            border: 1px solid rgba(255, 255, 255, 0.2);
+            box-shadow: 0 4px 15px rgba(0,0,0,0.3);
+            letter-spacing: 2px;
+            z-index: 10;
+        }
+
+        .turnos-wrapper { 
+            width: 100%;
+            display: flex; 
+            flex-direction: column;
+            justify-content: flex-end; 
+            align-items: center; 
+            padding: 15px 30px; 
+            background-color: #f4f6f9;
+            box-shadow: 0 -8px 25px rgba(0,0,0,0.15);
+            z-index: 5;
+        }
+
+        .ventanillas-container { 
+            display: grid;
+            grid-template-columns: repeat(3, 1fr);
+            gap: 25px;
+            width: 100%;
+            max-width: 1400px;
+        }
+
+        .ventanilla { 
+            background: #ffffff; 
+            padding: 15px 10px; 
+            border-radius: 16px; 
+            text-align: center; 
+            box-shadow: 0 6px 20px rgba(0,0,0,0.08);
+            transition: all 0.3s ease;
+            position: relative;
+            overflow: hidden;
+            display: flex;
+            flex-direction: column;
+            justify-content: center;
+            align-items: center;
+        }
+
+        .ventanilla.v1 { border-top: 8px solid var(--rojo-ventanilla); }
+        .ventanilla.v2 { border-top: 8px solid var(--verde-ventanilla); }
+        .ventanilla.v3 { border-top: 8px solid var(--azul-ventanilla); }
+
+        .titulo { 
+            font-size: 2.3rem; /* Letras de los encabezados de ventanilla más grandes */
+            font-weight: 800; 
+            letter-spacing: 1px; 
+            margin-bottom: 5px;
+            text-transform: uppercase;
+        }
+
+        .ventanilla.v1 .titulo { color: var(--rojo-ventanilla); }
+        .ventanilla.v2 .titulo { color: var(--verde-ventanilla); }
+        .ventanilla.v3 .titulo { color: var(--azul-ventanilla); }
+
+        .numero { 
+            font-size: 6.5rem; 
+            font-weight: 900; 
+            margin: 0; 
+            line-height: 1;
+        }
+
+        .ventanilla.v1 .numero { color: var(--rojo-ventanilla); }
+        .ventanilla.v2 .numero { color: var(--verde-ventanilla); }
+        .ventanilla.v3 .numero { color: var(--azul-ventanilla); }
+
+        @keyframes pulsoCard {
+            0% { transform: scale(1); background-color: #ffffff; }
+            50% { transform: scale(1.03); background-color: #fff3cd; }
+            100% { transform: scale(1); background-color: #ffffff; }
+        }
+
+        .activar-alerta {
+            animation: pulsoCard 0.8s ease-in-out 3;
+        }
+
+        #overlay-inicio {
+            position: fixed;
+            top: 0; left: 0; width: 100%; height: 100%;
+            background: rgba(0, 0, 0, 0.85);
+            display: flex;
+            flex-direction: column;
+            justify-content: center;
+            align-items: center;
+            z-index: 9999;
+            color: white;
+            font-family: 'Inter', sans-serif;
+            cursor: pointer;
+            transition: opacity 0.5s ease;
+        }
+    </style>
+</head>
+<body onclick="iniciarSistemaUnico()">
+
+    <div id="overlay-inicio">
+        <h2 style="color: #c5a059; margin-bottom: 10px;">SISTEMA DE ATENCIÓN - GORE CAJAMARCA</h2>
+        <p style="font-size: 1.2rem;">Haz clic en cualquier lugar para iniciar la pantalla con audio y video</p>
+    </div>
+
+    <div class="slider-container">
+        <div id="reloj">00:00:00</div>
+        <video id="video-fondo" autoplay playsinline muted>
+            <source id="source-video" src="" type="video/mp4">
+        </video>
+    </div>
+
+    <div class="turnos-wrapper">
+        <div class="ventanillas-container">
+            <div class="ventanilla v1" id="card-Ventanilla 01">
+                <div class="titulo">VENTANILLA 01</div>
+                <div id="turno-Ventanilla-01" class="numero">0</div>
+            </div>
+            <div class="ventanilla v2" id="card-Ventanilla 02">
+                <div class="titulo">VENTANILLA 02</div>
+                <div id="turno-Ventanilla-02" class="numero">0</div>
+            </div>
+            <div class="ventanilla v3" id="card-Ventanilla 03">
+                <div class="titulo">VENTANILLA 03 (PREFERENCIAL)</div>
+                <div id="turno-Ventanilla-03" class="numero">0</div>
+            </div>
+        </div>
+    </div>
+
+    <audio id="audio-campana" src="{{ url_for('static', filename='campana.mp3') }}"></audio>
+
+    <script>
+        let estadoActual = {
+            "Ventanilla 01": { turno: -1, timestamp: 0 },
+            "Ventanilla 02": { turno: -1, timestamp: 0 },
+            "Ventanilla 03": { turno: -1, timestamp: 0 }
+        };
+        
+        let vocesDisponibles = [];
+        let sistemaIniciado = false;
+        
+        const videoFondo = document.getElementById('video-fondo');
+        const sourceVideo = document.getElementById('source-video');
+        
+        const listaVideos = [
+            "{{ url_for('static', filename='video1.mp4') }}",
+            "{{ url_for('static', filename='video2.mp4') }}",
+        ];
+        
+        let indiceVideoActual = 0;
+
+        function reproducirVideoActual() {
+            sourceVideo.src = listaVideos[indiceVideoActual];
+            videoFondo.load();
+            videoFondo.play().catch(e => console.log("Video play error:", e));
+        }
+
+        videoFondo.onended = function() {
+            indiceVideoActual = (indiceVideoActual + 1) % listaVideos.length;
+            reproducirVideoActual();
+        };
+        
+        const VOLUMEN_NORMAL = 0.8;
+        const VOLUMEN_BAJO = 0.15; 
+        videoFondo.volume = VOLUMEN_NORMAL;
+
+        function iniciarSistemaUnico() {
+            if (sistemaIniciado) return;
+            sistemaIniciado = true;
+
+            videoFondo.muted = false;
+            reproducirVideoActual();
+
+            const overlay = document.getElementById('overlay-inicio');
+            if (overlay) {
+                overlay.style.opacity = '0';
+                setTimeout(() => overlay.remove(), 500);
+            }
+        }
+
+        function cargarVoces() {
+            vocesDisponibles = window.speechSynthesis.getVoices();
+        }
+
+        cargarVoces();
+        if (window.speechSynthesis.onvoiceschanged !== undefined) {
+            window.speechSynthesis.onvoiceschanged = cargarVoces;
+        }
+
+        window.onload = function() {
+            fetch('/obtener_todos_los_turnos')
+                .then(r => r.json())
+                .then(data => {
+                    Object.keys(data).forEach(nV => {
+                        let info = data[nV];
+                        let turno = (typeof info === 'object') ? info.turno : info;
+                        let ts = (typeof info === 'object') ? info.timestamp : 0;
+                        
+                        if (turno > 0) {
+                            estadoActual[nV].turno = turno;
+                            estadoActual[nV].timestamp = ts;
+                            let elementId = "turno-" + nV.replace(/ /g, "-");
+                            let el = document.getElementById(elementId);
+                            if (el) el.innerText = turno;
+                        }
+                    });
+                });
+        };
+
+        function actualizarReloj() {
+            const options = { hour: '2-digit', minute: '2-digit', second: '2-digit' };
+            document.getElementById('reloj').innerText = new Date().toLocaleTimeString('es-ES', options);
+        }
+        setInterval(actualizarReloj, 1000);
+        actualizarReloj();
+
+        function verificarTurnos() {
+            fetch('/obtener_todos_los_turnos?t=' + new Date().getTime())
+                .then(r => r.json())
+                .then(data => {
+                    Object.keys(data).forEach(nV => {
+                        let info = data[nV];
+                        let turno = (typeof info === 'object') ? info.turno : info;
+                        let ts = (typeof info === 'object') ? info.timestamp : 0;
+
+                        if (turno > 0) {
+                            let elementId = "turno-" + nV.replace(/ /g, "-");
+                            let el = document.getElementById(elementId);
+                            if (!el) return;
+                            let cardId = "card-" + nV;
+                            let contenedor = document.getElementById(cardId);
+
+                            if (turno !== estadoActual[nV].turno || ts !== estadoActual[nV].timestamp) {
+                                estadoActual[nV].turno = turno;
+                                estadoActual[nV].timestamp = ts;
+                                el.innerText = turno;
+                                
+                                dispararAlertaYAudio(nV, turno, contenedor);
+                            }
+                        }
+                    });
+                });
+        }
+
+        function dispararAlertaYAudio(nV, turno, contenedor) {
+            if (contenedor) {
+                contenedor.classList.remove('activar-alerta');
+                void contenedor.offsetWidth; 
+                contenedor.classList.add('activar-alerta');
+                setTimeout(() => contenedor.classList.remove('activar-alerta'), 4000);
+            }
+            
+            videoFondo.volume = VOLUMEN_BAJO;
+
+            let audioCampana = document.getElementById('audio-campana');
+            if (audioCampana) {
+                audioCampana.currentTime = 0;
+                audioCampana.play().catch(e => console.log("Audio campana bloqueado:", e));
+            }
+
+            setTimeout(() => {
+                window.speechSynthesis.cancel(); 
+                
+                let textoLlamada = '';
+                if (nV === "Ventanilla 03") {
+                    textoLlamada = 'Turno número ' + turno + ', por favor, diríjase a la Ventanilla número 3 preferencial';
+                } else {
+                    textoLlamada = 'Turno ' + turno + ', por favor, acérquese a ' + nV;
+                }
+
+                let msg = new SpeechSynthesisUtterance(textoLlamada);
+                msg.lang = 'es-ES';
+                msg.rate = 0.85; 
+                msg.pitch = 1.0; 
+                
+                if (vocesDisponibles.length === 0) {
+                    vocesDisponibles = window.speechSynthesis.getVoices();
+                }
+                
+                let vozHumana = vocesDisponibles.find(v => (v.name.includes("Google") || v.name.includes("Microsoft")) && v.lang.startsWith('es'));
+                if (!vozHumana) {
+                    vozHumana = vocesDisponibles.find(v => v.lang.startsWith('es'));
+                }
+                
+                if (vozHumana) {
+                    msg.voice = vozHumana;
+                }
+
+                msg.onend = function() {
+                    videoFondo.volume = VOLUMEN_NORMAL;
+                };
+
+                window.speechSynthesis.speak(msg);
+            }, 800);
+        }
+
+        setInterval(verificarTurnos, 1500);
+    </script>
+</body>
+</html>

@@ -1,0 +1,49 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <title>Historial Semanal de Atenciones - GORE Cajamarca</title>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600;700&display=swap" rel="stylesheet">
+    <style>
+        body { font-family: 'Inter', sans-serif; background: #f0f4f8; margin: 0; padding: 20px; color: #333; }
+        .container { max-width: 1000px; margin: 0 auto; background: white; padding: 25px; border-radius: 12px; box-shadow: 0 4px 15px rgba(0,0,0,0.05); }
+        h2 { color: #004a99; margin-top: 0; border-bottom: 2px solid #eee; padding-bottom: 10px; }
+        table { width: 100%; border-collapse: collapse; margin-top: 15px; }
+        th, td { padding: 12px 15px; text-align: left; border-bottom: 1px solid #e2e8f0; font-size: 0.9rem; }
+        th { background: #004a99; color: white; font-weight: 600; }
+        tr:hover { background: #f8fafc; }
+        .btn-volver { display: inline-block; background: #004a99; color: white; padding: 8px 16px; border-radius: 8px; text-decoration: none; font-weight: 600; margin-bottom: 15px; }
+        .btn-volver:hover { background: #003366; color: white; text-decoration: none; }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <a href="/control" class="btn-volver">← Volver al Panel</a>
+        <h2>Historial de Turnos Atendidos (Semanal / Acumulado)</h2>
+        <table>
+            <thead>
+                <tr>
+                    <th>N° Turno</th>
+                    <th>Ventanilla</th>
+                    <th>DNI Ciudadano</th>
+                    <th>Fecha y Hora de Atención</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for reg in registros %}
+                <tr>
+                    <td><strong>#{{ reg.turno }}</strong></td>
+                    <td>{{ reg.ventanilla }}</td>
+                    <td>{{ reg.dni }}</td>
+                    <td>{{ reg.fecha.strftime('%d/%m/%Y %H:%M:%S') if reg.fecha else '' }}</td>
+                </tr>
+                {% else %}
+                <tr>
+                    <td colspan="4" style="text-align: center; color: #888;">No hay registros de atención guardados.</td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+</body>
+</html>
