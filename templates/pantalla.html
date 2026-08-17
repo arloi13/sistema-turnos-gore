@@ -35,7 +35,7 @@
             background-color: #000;
         }
 
-        #video-fondo, .media-slide {
+        .media-slide {
             width: 100%; 
             height: 100%; 
             object-fit: fill; 
@@ -157,21 +157,21 @@
 
     <div id="overlay-inicio">
         <h2 style="color: #c5a059; margin-bottom: 10px;">SISTEMA DE ATENCIÓN - GORE CAJAMARCA</h2>
-        <p style="font-size: 1.2rem;">Haz clic en cualquier lugar para iniciar la pantalla con audio y video</p>
+        <p style="font-size: 1.2rem;">Haz clic en cualquier lugar para activar el audio de las llamadas</p>
     </div>
 
     <div class="slider-container">
         <div id="reloj">00:00:00</div>
         
-        <!-- Único video -->
-        <video id="video-fondo" playsinline muted>
-            <source src="{{ url_for('static', filename='video1.mp4') }}" type="video/mp4">
-        </video>
-
-        <!-- Tus 3 fotos institucionales -->
-        <img src="{{ url_for('static', filename='foto1.jpg') }}" class="media-slide" alt="Foto 1">
+        <!-- Las 8 fotos institucionales -->
+        <img src="{{ url_for('static', filename='foto1.jpg') }}" class="media-slide active" alt="Foto 1">
         <img src="{{ url_for('static', filename='foto2.jpg') }}" class="media-slide" alt="Foto 2">
         <img src="{{ url_for('static', filename='foto3.jpg') }}" class="media-slide" alt="Foto 3">
+        <img src="{{ url_for('static', filename='foto4.jpg') }}" class="media-slide" alt="Foto 4">
+        <img src="{{ url_for('static', filename='foto5.jpg') }}" class="media-slide" alt="Foto 5">
+        <img src="{{ url_for('static', filename='foto6.jpg') }}" class="media-slide" alt="Foto 6">
+        <img src="{{ url_for('static', filename='foto7.jpg') }}" class="media-slide" alt="Foto 7">
+        <img src="{{ url_for('static', filename='foto8.jpg') }}" class="media-slide" alt="Foto 8">
     </div>
 
     <div class="turnos-wrapper">
@@ -203,76 +203,19 @@
         let vocesDisponibles = [];
         let sistemaIniciado = false;
         
-        const videoFondo = document.getElementById('video-fondo');
         const slides = document.querySelectorAll('.media-slide');
-        
-        let mediaInterval = null;
         let currentSlideIndex = 0;
 
-        function ocultarTodoMultimedia() {
-            videoFondo.classList.remove('active');
-            slides.forEach(s => s.classList.remove('active'));
-        }
-
-        function iniciarCicloMultimedia() {
-            if (!sistemaIniciado) return;
-            
-            // 1. Mostrar y reproducir el video
-            ocultarTodoMultimedia();
-            videoFondo.classList.add('active');
-            videoFondo.currentTime = 0;
-            videoFondo.play().catch(e => console.log("Video play error:", e));
-
-            // Si el video termina normalmente, pasamos a las fotos
-            videoFondo.onended = function() {
-                transicionarAFotos();
-            };
-
-            // PLAN DE SEGURIDAD: Si por alguna razón el evento 'ended' falla o el video se traba,
-            // forzamos el salto a las fotos a los 30 segundos máximos de reproducción de video.
-            setTimeout(() => {
-                if (videoFondo.classList.contains('active')) {
-                    transicionarAFotos();
-                }
-            }, 30000);
-        }
-
-        function transicionarAFotos() {
-            videoFondo.pause();
-            currentSlideIndex = 0;
-            mostrarSlideActual();
-
-            // Rotar entre las 3 fotos cada 30 segundos
-            if (mediaInterval) clearInterval(mediaInterval);
-            mediaInterval = setInterval(() => {
-                currentSlideIndex++;
-                if (currentSlideIndex >= slides.length) {
-                    // Terminaron las 3 fotos, volvemos a iniciar el ciclo con el video
-                    clearInterval(mediaInterval);
-                    iniciarCicloMultimedia();
-                } else {
-                    mostrarSlideActual();
-                }
-            }, 30000); 
-        }
-
-        function mostrarSlideActual() {
-            ocultarTodoMultimedia();
-            if (slides[currentSlideIndex]) {
-                slides[currentSlideIndex].classList.add('active');
-            }
-        }
-        
-        const VOLUMEN_NORMAL = 0.8;
-        const VOLUMEN_BAJO = 0.15; 
-        videoFondo.volume = VOLUMEN_NORMAL;
+        // Rotación automática entre las 8 fotos cada 30 segundos en bucle continuo
+        setInterval(() => {
+            slides[currentSlideIndex].classList.remove('active');
+            currentSlideIndex = (currentSlideIndex + 1) % slides.length;
+            slides[currentSlideIndex].classList.add('active');
+        }, 30000);
 
         function iniciarSistemaUnico() {
             if (sistemaIniciado) return;
             sistemaIniciado = true;
-
-            videoFondo.muted = false;
-            iniciarCicloMultimedia();
 
             const overlay = document.getElementById('overlay-inicio');
             if (overlay) {
@@ -290,6 +233,7 @@
             window.speechSynthesis.onvoiceschanged = cargarVoces;
         }
 
+        // Recupera los turnos actuales del servidor al cargar la pantalla
         window.onload = function() {
             fetch('/obtener_todos_los_turnos')
                 .then(r => r.json())
@@ -317,6 +261,7 @@
         setInterval(actualizarReloj, 1000);
         actualizarReloj();
 
+        // Monitoreo constante de turnos en segundo plano
         function verificarTurnos() {
             fetch('/obtener_todos_los_turnos?t=' + new Date().getTime())
                 .then(r => r.json())
@@ -352,8 +297,6 @@
                 contenedor.classList.add('activar-alerta');
                 setTimeout(() => contenedor.classList.remove('activar-alerta'), 4000);
             }
-            
-            videoFondo.volume = VOLUMEN_BAJO;
 
             let audioCampana = document.getElementById('audio-campana');
             if (audioCampana) {
@@ -388,10 +331,6 @@
                 if (vozHumana) {
                     msg.voice = vozHumana;
                 }
-
-                msg.onend = function() {
-                    videoFondo.volume = VOLUMEN_NORMAL;
-                };
 
                 window.speechSynthesis.speak(msg);
             }, 800);
