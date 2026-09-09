@@ -379,7 +379,6 @@
 
         // Sincronizar datos de colas, turnos y archivados con el backend
         function actualizarDatosPanel() {
-            // Si la pestaña está oculta, no hacemos fetch para ahorrar ancho de banda
             if (document.hidden) return;
 
             fetch('/obtener_estado_colas?ventanilla=' + encodeURIComponent(config.ventanilla))
@@ -477,7 +476,6 @@
             }
         });
 
-        // Evento para actualizar inmediatamente si el operador vuelve a enfocar la pestaña
         document.addEventListener("visibilitychange", function() {
             if (!document.hidden) {
                 actualizarDatosPanel();
@@ -486,7 +484,6 @@
 
         window.onload = function() {
             actualizarDatosPanel();
-            // Intervalo cambiado a 7 segundos (7000 ms) para reducir drásticamente el tráfico en Render
             setInterval(actualizarDatosPanel, 7000); 
         };
     </script>
