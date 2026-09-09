@@ -377,7 +377,6 @@
         setInterval(actualizarReloj, 1000);
         actualizarReloj();
 
-        // Sincronizar datos de colas, turnos y archivados con el backend
         function actualizarDatosPanel() {
             if (document.hidden) return;
 
@@ -395,8 +394,8 @@
                         badgeEspera.innerText = data.cola_espera.length;
                         contenedorEspera.innerHTML = data.cola_espera.map(t => `
                             <div class="item-cola">
-                                <span>Ticket #${t}</span>
-                                <span style="font-size:0.75rem; color:#666;">En espera</span>
+                                <span>Ticket #${t.turno}</span>
+                                <span style="font-size:0.75rem; color:#666;">${t.hora}</span>
                             </div>
                         `).join('');
                     } else {
