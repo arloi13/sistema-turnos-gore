@@ -377,6 +377,40 @@
         setInterval(actualizarReloj, 1000);
         actualizarReloj();
 
+        // Funciones de ayuda seguras para extraer valores primitivos y evitar [object Object]
+        function extraerNumero(item) {
+            if (item === null || item === undefined) return '?';
+            if (typeof item !== 'object') return item;
+            if (item.turno !== undefined) return extraerNumero(item.turno);
+            if (item.numero !== undefined) return extraerNumero(item.numero);
+            if (item.id !== undefined) return extraerNumero(item.id);
+            
+            // Buscar primer valor primitivo dentro del objeto
+            for (let key in item) {
+                if (item[key] !== null && typeof item[key] !== 'object' && typeof item[key] !== 'function') {
+                    return item[key];
+                }
+            }
+            return '?';
+        }
+
+        function extraerHora(item) {
+            if (item === null || item === undefined) return '';
+            if (typeof item !== 'object') return '';
+            if (item.hora !== undefined) return extraerNumero(item.hora);
+            if (item.fecha_registro !== undefined) return extraerNumero(item.fecha_registro);
+            if (item.time !== undefined) return extraerNumero(item.time);
+
+            // Buscar una propiedad que parezca hora (ej. contenga ':' o sea string corto)
+            for (let key in item) {
+                let val = item[key];
+                if (typeof val === 'string' && (val.includes(':') || val.length <= 10)) {
+                    return val;
+                }
+            }
+            return '';
+        }
+
         function actualizarDatosPanel() {
             if (document.hidden) return;
 
@@ -388,31 +422,44 @@
                         if (el && data.turno_actual > 0) el.innerText = data.turno_actual;
                     }
 
+                    // --- COLA DE ESPERA ---
                     let contenedorEspera = document.getElementById('lista-espera');
                     let badgeEspera = document.getElementById('contador-espera');
+                    
                     if (data.cola_espera && data.cola_espera.length > 0) {
                         badgeEspera.innerText = data.cola_espera.length;
-                        contenedorEspera.innerHTML = data.cola_espera.map(t => `
-                            <div class="item-cola">
-                                <span>Ticket #${t.turno}</span>
-                                <span style="font-size:0.75rem; color:#666;">${t.hora}</span>
-                            </div>
-                        `).join('');
+                        contenedorEspera.innerHTML = data.cola_espera.map(item => {
+                            let numTurno = extraerNumero(item);
+                            let horaStr = extraerHora(item);
+
+                            return `
+                                <div class="item-cola">
+                                    <span>Ticket #${numTurno}</span>
+                                    <span style="font-size:0.75rem; color:#666;">${horaStr}</span>
+                                </div>
+                            `;
+                        }).join('');
                     } else {
                         badgeEspera.innerText = "0";
                         contenedorEspera.innerHTML = `<div style="color: #888; text-align: center; margin-top: 20px; font-size: 0.8rem;">No hay tickets en espera.</div>`;
                     }
 
+                    // --- COLA DE ARCHIVADOS ---
                     let contenedorArchivados = document.getElementById('lista-archivados');
                     let badgeArchivados = document.getElementById('contador-archivados');
+                    
                     if (data.cola_archivados && data.cola_archivados.length > 0) {
                         badgeArchivados.innerText = data.cola_archivados.length;
-                        contenedorArchivados.innerHTML = data.cola_archivados.map(t => `
-                            <div class="item-archivado">
-                                <span>Ticket #${t}</span>
-                                <span style="font-size:0.75rem; background:#fee2e2; padding:2px 6px; border-radius:4px;">Archivado (3x)</span>
-                            </div>
-                        `).join('');
+                        contenedorArchivados.innerHTML = data.cola_archivados.map(item => {
+                            let numArchivado = extraerNumero(item);
+
+                            return `
+                                <div class="item-archivado">
+                                    <span>Ticket #${numArchivado}</span>
+                                    <span style="font-size:0.75rem; background:#fee2e2; padding:2px 6px; border-radius:4px;">Archivado (3x)</span>
+                                </div>
+                            `;
+                        }).join('');
                     } else {
                         badgeArchivados.innerText = "0";
                         contenedorArchivados.innerHTML = `<div style="color: #888; text-align: center; margin-top: 20px; font-size: 0.8rem;">No hay tickets archivados.</div>`;
