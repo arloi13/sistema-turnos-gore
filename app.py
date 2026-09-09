@@ -84,7 +84,7 @@ def obtener_estado_colas():
     
     return jsonify({
         "turno_actual": turno_actual_activo,
-        "cola_espera": [t.turno for t in tickets_espera],
+        "cola_espera": [{"turno": t.turno, "hora": t.fecha_registro} for t in tickets_espera],
         "cola_archivados": [t.turno for t in tickets_archivados]
     })
 
@@ -194,7 +194,12 @@ def index():
         preferencial = True if request.form.get('preferencial') == 'on' else False
         if dni:
             ultimo_ticket = Ticket.query.filter_by(dni=dni, estado='ESPERA').order_by(Ticket.id.desc()).first()
-            if not ultimo_ticket:
+            
+            crear_nuevo = True
+            if ultimo_ticket:
+                crear_nuevo = False
+            
+            if crear_nuevo:
                 max_t = db.session.query(db.func.max(Ticket.turno)).scalar()
                 nuevo_turno = (max_t or 0) + 1
                 nuevo_ticket = Ticket(
@@ -207,7 +212,7 @@ def index():
                 )
                 db.session.add(nuevo_ticket)
                 db.session.commit()
-            return redirect('/')
+        return redirect('/')
     
     tickets = Ticket.query.filter_by(estado="ESPERA").order_by(Ticket.id.asc()).all()
     return render_template('index.html', tickets=tickets)
@@ -232,7 +237,7 @@ def registro():
                 )
                 db.session.add(nuevo_ticket)
                 db.session.commit()
-            return render_template('registro.html', mensaje="¡Turno generado con éxito!")
+        return render_template('registro.html', mensaje="¡Turno generado con éxito!")
     return render_template('registro.html')
 
 @app.route('/control')
