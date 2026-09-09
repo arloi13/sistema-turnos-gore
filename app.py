@@ -18,7 +18,7 @@ app.config['SQLALCHEMY_TRACK_MODIFICATIONS'] = False
 
 db = SQLAlchemy(app)
 
-# Zona horaria nativa para Perú (sin dependencias externas)
+# Zona horaria nativa para Perú
 PERU_TZ = ZoneInfo("America/Lima")
 
 def obtener_tiempo_peru():
@@ -195,11 +195,8 @@ def index():
         if dni:
             ultimo_ticket = Ticket.query.filter_by(dni=dni, estado='ESPERA').order_by(Ticket.id.desc()).first()
             
-            crear_nuevo = True
-            if ultimo_ticket:
-                crear_nuevo = False
-            
-            if crear_nuevo:
+            # Validación estricta para evitar duplicidad de ticket activo por DNI
+            if not ultimo_ticket:
                 max_t = db.session.query(db.func.max(Ticket.turno)).scalar()
                 nuevo_turno = (max_t or 0) + 1
                 nuevo_ticket = Ticket(
@@ -313,7 +310,7 @@ def repetir_turno(ventanilla):
         })
         
     return jsonify({"status": "error", "mensaje": "No hay turno activo"}), 400
-    
+
 @app.route('/pantalla')
 def pantalla(): 
     return render_template('pantalla.html')
