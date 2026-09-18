@@ -46,101 +46,132 @@
             color: white;
             text-align: left;
         }
-        h4 { color: var(--azul-gore); text-align: center; }
-        .controles { margin-bottom: 20px; text-align: center; }
-        table { width: 100%; border-collapse: collapse; background: white; box-shadow: 0 0 10px rgba(0,0,0,0.1); }
-        th, td { padding: 12px; border: 1px solid #ddd; text-align: center; }
-        th { background-color: var(--azul-gore); color: white; }
-        .card { margin-bottom: 30px; padding: 20px; box-shadow: 0 0 10px rgba(0,0,0,0.05); background: white; border-radius: 10px; }
-        .btn-export { padding: 10px 20px; background: #28a745; color: white; border: none; cursor: pointer; border-radius: 5px; }
-        .chart-container { position: relative; width: 100%; max-width: 600px; margin: 20px auto; height: 300px; }
+        h4 { color: var(--azul-gore); text-align: center; font-weight: 700; margin-bottom: 10px; }
+        .subtitulo-filtro { text-align: center; font-size: 0.9rem; color: #6c757d; margin-bottom: 20px; }
+        .controles { margin: 20px 0 15px 0; text-align: center; display: flex; justify-content: center; align-items: center; gap: 15px; flex-wrap: wrap; }
+        table { width: 100%; border-collapse: collapse; background: white; box-shadow: 0 0 10px rgba(0,0,0,0.05); border-radius: 8px; overflow: hidden; }
+        th, td { padding: 12px 15px; border: 1px solid #dee2e6; text-align: center; vertical-align: middle !important; }
+        th { background-color: var(--azul-gore); color: white; font-weight: 600; }
+        .card { margin-bottom: 30px; padding: 25px; box-shadow: 0 4px 15px rgba(0,0,0,0.05); background: white; border-radius: 12px; border: none; }
+        .btn-export { padding: 9px 20px; background: #28a745; color: white; border: none; cursor: pointer; border-radius: 5px; font-weight: 600; transition: background 0.2s; }
+        .btn-export:hover { background: #218838; }
+        .chart-container { position: relative; width: 100%; max-width: 650px; margin: 20px auto; height: 320px; }
     </style>
 </head>
 <body>
 
     <header>
         <div class="header-title">
-            <img src="{{ url_for('static', filename='logo.png') }}" alt="GORE Cajamarca" class="logo-img">
-            <h2>Reporte de Gestión - GORE Cajamarca</h2>
+            <img src="{{ url_for('static', filename='logo.png') }}" alt="GORE Cajamarca" class="logo-img" onerror="this.style.display='none'">
+            <h2>Reporte de Gestión y Analítica - GORE Cajamarca</h2>
         </div>
-        <span id="reloj" style="font-weight: 600; font-size: 1.1rem;">00:00:00</span>
+        <div class="text-right">
+            <div id="fecha-actual" style="font-size: 0.85rem; opacity: 0.9;"></div>
+            <span id="reloj" style="font-weight: 600; font-size: 1.1rem;">00:00:00</span>
+        </div>
     </header>
 
     <div class="container">
+        <!-- Controles globales de Fecha para Gráficos y Tablas -->
+        <div class="card shadow-sm bg-white">
+            <div class="controles m-0">
+                <label for="filtroFechaGlobal" class="font-weight-bold mb-0 text-dark"><i class="bi bi-calendar"></i> Seleccionar Fecha de Análisis: </label>
+                <input type="date" id="filtroFechaGlobal" class="form-control w-auto d-inline-block font-weight-bold text-primary" value="{{ fecha_filtro if fecha_filtro else '' }}" onchange="aplicarFiltroGlobal()">
+                <button class="btn btn-outline-primary btn-sm px-3" onclick="limpiarFiltroGlobal()">Ver Histórico Completo</button>
+            </div>
+        </div>
+
         <!-- Gráfico de Comparación -->
         <div class="card">
             <h4>Comparativa de Atenciones por Ventanilla</h4>
+            <div id="subtituloGrafico" class="subtitulo-filtro">Mostrando datos generales</div>
             <div class="chart-container">
                 <canvas id="graficoVentanillas"></canvas>
             </div>
         </div>
 
+        <!-- Atenciones por Colaborador -->
         <div class="card">
-            <h4>Atenciones por Colaborador</h4>
-            <div class="d-flex justify-content-center mb-3">
-                <select id="filtroEstadistica" class="form-control w-25" onchange="cargarEstadisticas()">
-                    <option value="">Total Histórico</option>
-                    <option value="dia">Hoy</option>
-                    <option value="mes">Este Mes</option>
-                </select>
+            <h4>Rendimiento de Atenciones por Colaborador</h4>
+            <div class="table-responsive">
+                <table class="table table-bordered table-striped">
+                    <thead>
+                        <tr>
+                            <th>Colaborador</th>
+                            <th>Ventanilla</th>
+                            <th>Total Atenciones</th>
+                        </tr>
+                    </thead>
+                    <tbody id="tabla-estadisticas">
+                        <!-- Dinámico vía JS -->
+                    </tbody>
+                </table>
             </div>
-            <table class="table table-bordered">
-                <thead>
-                    <tr>
-                        <th>Colaborador</th>
-                        <th>Ventanilla</th>
-                        <th>Total Atenciones</th>
-                    </tr>
-                </thead>
-                <tbody id="tabla-estadisticas">
-                    <!-- Dinámico -->
-                </tbody>
-            </table>
         </div>
 
         <!-- Historial Detallado -->
-        <div class="controles">
-            <label>Filtrar historial por fecha: </label>
-            <input type="date" id="filtroFecha" onchange="filtrarTabla()">
-            <button class="btn-export" onclick="exportarExcel('tabla-historial', 'Historial_Atenciones')">Exportar a Excel</button>
+        <div class="card">
+            <h4>Bitácora de Historial Detallado</h4>
+            <div class="d-flex justify-content-end mb-3">
+                <button class="btn-export" onclick="exportarExcel('tabla-historial', 'Historial_Atenciones')">Exportar a Excel (.xls)</button>
+            </div>
+            
+            <div class="table-responsive">
+                <table id="tabla-historial" class="table table-striped table-bordered">
+                    <thead>
+                        <tr>
+                            <th>ID Registro</th>
+                            <th>Turno</th>
+                            <th>Detalle (Ventanilla)</th>
+                            <th>DNI Ciudadano</th>
+                            <th>Fecha y Hora</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {% if registros %}
+                            {% for registro in registros %}
+                            <tr>
+                                <td><small class="text-muted">{{ registro.id }}</small></td>
+                                <td><strong>{{ registro.turno }}</strong></td>
+                                <td>{{ registro.ventanilla }}</td>
+                                <td>{{ registro.dni }}</td>
+                                <td class="fecha-celda">{{ registro.fecha }}</td>
+                            </tr>
+                            {% endfor %}
+                        {% else %}
+                            <tr>
+                                <td colspan="5" class="text-center text-muted py-4">No se encontraron registros de atención disponibles para este filtro.</td>
+                            </tr>
+                        {% endif %}
+                    </tbody>
+                </table>
+            </div>
         </div>
-        
-        <table id="tabla-historial">
-            <thead>
-                <tr>
-                    <th>ID</th>
-                    <th>Turno</th>
-                    <th>Detalle</th>
-                    <th>DNI</th>
-                    <th>Fecha</th>
-                </tr>
-            </thead>
-            <tbody>
-                {% for registro in registros %}
-                <tr>
-                    <td>{{ registro.id }}</td>
-                    <td>{{ registro.turno }}</td>
-                    <td>{{ registro.ventanilla }}</td>
-                    <td>{{ registro.dni }}</td>
-                    <td class="fecha-celda">{{ registro.fecha.strftime('%Y-%m-%d') if registro.fecha else '' }}</td>
-                </tr>
-                {% endfor %}
-            </tbody>
-        </table>
     </div>
 
     <script>
         let miGrafico = null;
 
-        function actualizarReloj() {
-            document.getElementById('reloj').innerText = new Date().toLocaleTimeString('es-ES');
+        function actualizarRelojYFecha() {
+            const ahora = new Date();
+            document.getElementById('reloj').innerText = ahora.toLocaleTimeString('es-ES');
+            const opciones = { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' };
+            document.getElementById('fecha-actual').innerText = ahora.toLocaleDateString('es-ES', opciones);
         }
-        setInterval(actualizarReloj, 1000);
-        actualizarReloj();
+        setInterval(actualizarRelojYFecha, 1000);
+        actualizarRelojYFecha();
 
-        function cargarEstadisticas() {
-            let filtro = document.getElementById("filtroEstadistica").value;
-            fetch('/estadisticas?filtro=' + filtro)
+        function cargarEstadisticasConFiltro() {
+            let fechaVal = document.getElementById("filtroFechaGlobal").value;
+            let url = '/estadisticas';
+            if (fechaVal) {
+                url += '?fecha=' + fechaVal;
+                document.getElementById("subtituloGrafico").innerText = "Filtro aplicado: Fecha " + fechaVal;
+            } else {
+                document.getElementById("subtituloGrafico").innerText = "Mostrando acumulado histórico total";
+            }
+
+            fetch(url)
                 .then(r => r.json())
                 .then(data => {
                     let tbody = document.getElementById("tabla-estadisticas");
@@ -149,9 +180,13 @@
                     let labels = [];
                     let totales = [];
 
+                    if (data.length === 0) {
+                        tbody.innerHTML = `<tr><td colspan="3" class="text-center text-muted">No hay atenciones registradas para esta fecha</td></tr>`;
+                    }
+
                     data.forEach(item => {
                         tbody.innerHTML += `<tr>
-                            <td>${item.colaborador}</td>
+                            <td>${item.colaborador || 'N/A'}</td>
                             <td>${item.ventanilla}</td>
                             <td><strong>${item.total}</strong></td>
                         </tr>`;
@@ -176,12 +211,12 @@
                 data: {
                     labels: labels.length > 0 ? labels : ["Ventanilla 01", "Ventanilla 02", "Ventanilla 03"],
                     datasets: [{
-                        label: 'Personas Atendidas',
+                        label: 'Atenciones Realizadas',
                         data: data.length > 0 ? data : [0, 0, 0],
                         backgroundColor: ['#004a99', '#c5a059', '#003366'],
                         borderColor: ['#003366', '#a68344', '#001f3f'],
                         borderWidth: 1,
-                        borderRadius: 5
+                        borderRadius: 6
                     }]
                 },
                 options: {
@@ -190,28 +225,28 @@
                     scales: {
                         y: {
                             beginAtZero: true,
-                            ticks: {
-                                stepSize: 1
-                            }
+                            ticks: { stepSize: 1 }
                         }
                     },
                     plugins: {
-                        legend: {
-                            display: false
-                        }
+                        legend: { display: false }
                     }
                 }
             });
         }
 
-        function filtrarTabla() {
-            let input = document.getElementById("filtroFecha").value;
-            let tabla = document.getElementById("tabla-historial");
-            let filas = tabla.getElementsByTagName("tr");
-            for (let i = 1; i < filas.length; i++) {
-                let celdaFecha = filas[i].getElementsByTagName("td")[4].innerText;
-                filas[i].style.display = (input === "" || celdaFecha === input) ? "" : "none";
+        function aplicarFiltroGlobal() {
+            let fechaSeleccionada = document.getElementById("filtroFechaGlobal").value;
+            // Recarga la página enviando la fecha para sincronizar la tabla detallada y el gráfico
+            if (fechaSeleccionada) {
+                window.location.href = '/historial?fecha=' + fechaSeleccionada;
+            } else {
+                window.location.href = '/historial';
             }
+        }
+
+        function limpiarFiltroGlobal() {
+            window.location.href = '/historial';
         }
 
         function exportarExcel(idTabla, nombreArchivo) {
@@ -225,7 +260,7 @@
         }
 
         window.onload = function() {
-            cargarEstadisticas();
+            cargarEstadisticasConFiltro();
         };
     </script>
 </body>
