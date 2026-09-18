@@ -230,10 +230,8 @@ def index():
         preferencial = True if request.form.get('preferencial') == 'on' else False
         
         if dni:
-            # Validación estricta: si el DNI ya tiene un ticket en ESPERA, no duplicar
             existing = list(tickets_ref.where('dni', '==', dni).where('estado', '==', 'ESPERA').stream())
             if not existing:
-                # Obtener el último turno de forma eficiente y segura
                 ultimos_turnos = list(tickets_ref.order_by('turno', direction=firestore.Query.DESCENDING).limit(1).stream())
                 max_t = 0
                 if ultimos_turnos:
