@@ -1,6 +1,6 @@
 import os
 import json
-from flask import Flask, render_template, request, redirect, jsonify
+from flask import Flask, render_template, request, redirect, jsonify, Response
 from datetime import datetime
 from zoneinfo import ZoneInfo
 from urllib.parse import unquote
@@ -130,7 +130,9 @@ def actualizar_turno(ventanilla):
 
 @app.route('/estadisticas', methods=['GET'])
 def estadisticas():
-    filtro = request.args.get('filtro')
+    filtro = request.args.get('filtro') # 'dia', 'mes', o vacío/historico
+    fecha_personalizada = request.args.get('fecha') # Formato YYYY-MM-DD
+    
     now_peru = obtener_tiempo_peru()
     hoy_str = now_peru.strftime("%Y-%m-%d")
     mes_str = now_peru.strftime("%Y-%m")
@@ -140,18 +142,24 @@ def estadisticas():
     
     for doc in historial_docs:
         d = doc.to_dict()
-        fecha_str = d.get('fecha', '')
+        fecha_str = str(d.get('fecha', ''))
         vent = d.get('ventanilla')
         if not vent:
             continue
         
+        solo_fecha = fecha_str.split(" ")[0] if " " in fecha_str else fecha_str
+        
         incluir = True
-        if filtro == 'dia':
-            if not fecha_str.startswith(hoy_str):
+        if fecha_personalizada:
+            if solo_fecha != fecha_personalizada:
                 incluir = False
-        elif filtro == 'mes':
-            if not fecha_str.startswith(mes_str):
-                incluir = False
+        else:
+            if filtro == 'dia':
+                if solo_fecha != hoy_str:
+                    incluir = False
+            elif filtro == 'mes':
+                if not fecha_str.startswith(mes_str):
+                    incluir = False
                 
         if incluir:
             conteo[vent] = conteo.get(vent, 0) + 1
@@ -161,21 +169,32 @@ def estadisticas():
 @app.route('/historial', methods=['GET'])
 def historial():
     try:
+        fecha_filtro = request.args.get('fecha')
         docs = list(db.collection('historial_atenciones').stream())
         registros = []
+        
         for doc in docs:
             d = doc.to_dict()
+            fecha_str = str(d.get('fecha', ''))
+            
+            if fecha_filtro:
+                solo_fecha = fecha_str.split(" ")[0] if " " in fecha_str else fecha_str
+                if solo_fecha != fecha_filtro:
+                    continue
+            
             class Record:
-                def __init__(self, data):
+                def __init__(self, data, doc_id):
+                    self.id = doc_id
                     self.ventanilla = data.get('ventanilla')
                     self.turno = data.get('turno')
                     self.fecha = data.get('fecha')
                     self.dni = data.get('dni')
-            registros.append(Record(d))
+            registros.append(Record(d, doc.id))
+            
         registros.sort(key=lambda x: str(x.fecha), reverse=True)
-        return render_template('historial.html', registros=registros)
+        return render_template('historial.html', registros=registros, fecha_filtro=fecha_filtro or "")
     except Exception as e:
-        return render_template('historial.html', registros=[])
+        return render_template('historial.html', registros=[], fecha_filtro="")
 
 @app.route('/obtener_todos_los_turnos')
 def obtener_todos_los_turnos():
@@ -207,17 +226,19 @@ def resetear_turnos():
 def index():
     tickets_ref = db.collection('tickets')
     if request.method == 'POST':
-        dni = request.form.get('dni')
+        dni = request.form.get('dni', '').strip()
         preferencial = True if request.form.get('preferencial') == 'on' else False
+        
         if dni:
+            # Validación estricta: si el DNI ya tiene un ticket en ESPERA, no duplicar
             existing = list(tickets_ref.where('dni', '==', dni).where('estado', '==', 'ESPERA').stream())
             if not existing:
-                all_t = list(tickets_ref.stream())
+                # Obtener el último turno de forma eficiente y segura
+                ultimos_turnos = list(tickets_ref.order_by('turno', direction=firestore.Query.DESCENDING).limit(1).stream())
                 max_t = 0
-                for t_doc in all_t:
-                    val = t_doc.to_dict().get('turno', 0)
-                    if val > max_t:
-                        max_t = val
+                if ultimos_turnos:
+                    max_t = ultimos_turnos[0].to_dict().get('turno', 0)
+                
                 nuevo_turno = max_t + 1
                 
                 tickets_ref.add({
@@ -248,17 +269,17 @@ def index():
 def registro():
     tickets_ref = db.collection('tickets')
     if request.method == 'POST':
-        dni = request.form.get('dni')
+        dni = request.form.get('dni', '').strip()
         preferencial = True if request.form.get('preferencial') == 'on' else False
+        
         if dni:
             existing = list(tickets_ref.where('dni', '==', dni).where('estado', '==', 'ESPERA').stream())
             if not existing:
-                all_t = list(tickets_ref.stream())
+                ultimos_turnos = list(tickets_ref.order_by('turno', direction=firestore.Query.DESCENDING).limit(1).stream())
                 max_t = 0
-                for t_doc in all_t:
-                    val = t_doc.to_dict().get('turno', 0)
-                    if val > max_t:
-                        max_t = val
+                if ultimos_turnos:
+                    max_t = ultimos_turnos[0].to_dict().get('turno', 0)
+                
                 nuevo_turno = max_t + 1
                 
                 tickets_ref.add({
@@ -269,8 +290,10 @@ def registro():
                     'turno': nuevo_turno,
                     'preferencial': preferencial
                 })
-        return render_template('registro.html', mensaje="¡Turno generado con éxito!")
-    return render_template('registro.html')
+        return redirect('/registro?exito=1')
+    
+    mensaje = "¡Turno generado con éxito!" if request.args.get('exito') else None
+    return render_template('registro.html', mensaje=mensaje)
 
 @app.route('/control')
 def control_general(): 
@@ -360,12 +383,13 @@ def historial_semanal():
         for doc in docs:
             d = doc.to_dict()
             class Record:
-                def __init__(self, data):
+                def __init__(self, data, doc_id):
+                    self.id = doc_id
                     self.ventanilla = data.get('ventanilla')
                     self.turno = data.get('turno')
                     self.fecha = data.get('fecha')
                     self.dni = data.get('dni')
-            registros.append(Record(d))
+            registros.append(Record(d, doc.id))
         registros.sort(key=lambda x: str(x.fecha), reverse=True)
         return render_template('historial_semanal.html', registros=registros)
     except Exception as e:
@@ -387,6 +411,76 @@ def limpiar_db():
         return "¡Contadores en 0 y tickets de la semana reiniciados con éxito! El historial de atenciones se mantiene intacto."
     except Exception as e:
         return f"Error: {e}"
+
+@app.route('/descargar_sql', methods=['GET'])
+def descargar_sql():
+    try:
+        sql_lines = []
+        sql_lines.append("-- --------------------------------------------------------")
+        sql_lines.append("-- Respaldo directo desde la aplicación en Render (Firestore)")
+        sql_lines.append("-- --------------------------------------------------------\n")
+        
+        tickets_ref = db.collection('tickets')
+        
+        # --- TABLA TICKETS ---
+        sql_lines.append("DROP TABLE IF EXISTS tickets;")
+        sql_lines.append("CREATE TABLE tickets (")
+        sql_lines.append("    id SERIAL PRIMARY KEY,")
+        sql_lines.append("    dni VARCHAR(50),")
+        sql_lines.append("    nombre VARCHAR(100),")
+        sql_lines.append("    fecha_registro VARCHAR(50),")
+        sql_lines.append("    estado VARCHAR(50),")
+        sql_lines.append("    turno INTEGER,")
+        sql_lines.append("    preferencial BOOLEAN")
+        sql_lines.append(");\n")
+        
+        for doc in tickets_ref.stream():
+            d = doc.to_dict()
+            dni = str(d.get('dni', ''))
+            nombre = str(d.get('nombre', 'Ciudadano'))
+            fecha_reg = str(d.get('fecha_registro', ''))
+            estado = str(d.get('estado', ''))
+            turno = int(d.get('turno', 0))
+            preferencial = 'TRUE' if d.get('preferencial', False) else 'FALSE'
+            
+            sql_lines.append(
+                f"INSERT INTO tickets (dni, nombre, fecha_registro, estado, turno, preferencial) "
+                f"VALUES ('{dni}', '{nombre}', '{fecha_reg}', '{estado}', {turno}, {preferencial});"
+            )
+        
+        sql_lines.append("\n")
+        
+        # --- TABLA HISTORIAL_ATENCIONES ---
+        sql_lines.append("DROP TABLE IF EXISTS historial_atenciones;")
+        sql_lines.append("CREATE TABLE historial_atenciones (")
+        sql_lines.append("    id SERIAL PRIMARY KEY,")
+        sql_lines.append("    ventanilla VARCHAR(100),")
+        sql_lines.append("    turno INTEGER,")
+        sql_lines.append("    fecha TIMESTAMP,")
+        sql_lines.append("    dni VARCHAR(50)")
+        sql_lines.append(");\n")
+        
+        for doc in db.collection('historial_atenciones').stream():
+            d = doc.to_dict()
+            ventanilla = str(d.get('ventanilla', ''))
+            turno = int(d.get('turno', 0))
+            fecha = str(d.get('fecha', ''))
+            dni = str(d.get('dni', ''))
+            
+            sql_lines.append(
+                f"INSERT INTO historial_atenciones (ventanilla, turno, fecha, dni) "
+                f"VALUES ('{ventanilla}', {turno}, '{fecha}', '{dni}');"
+            )
+            
+        contenido_sql = "\n".join(sql_lines)
+        
+        return Response(
+            contenido_sql,
+            mimetype="text/sql",
+            headers={"Content-disposition": "attachment; filename=respaldo_turnos.sql"}
+        )
+    except Exception as e:
+        return f"Error al generar el respaldo SQL: {e}", 500
 
 if __name__ == '__main__':
     port = int(os.environ.get("PORT", 5000))
