@@ -9,7 +9,7 @@ from firebase_admin import credentials, firestore
 
 app = Flask(__name__)
 
-# --- CONFIGURACIÓN E INICIALIZACIÓN DE FIREBASE FIRESTORE ---
+
 if 'FIREBASE_CREDENTIALS_JSON' in os.environ:
     cred_dict = json.loads(os.environ['FIREBASE_CREDENTIALS_JSON'])
     cred = credentials.Certificate(cred_dict)
