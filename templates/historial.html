@@ -81,7 +81,7 @@
             </div>
         </div>
 
-        <!-- Gráfico de Comparación -->
+
         <div class="card">
             <h4>Comparativa de Atenciones por Ventanilla</h4>
             <div id="subtituloGrafico" class="subtitulo-filtro">Mostrando datos generales</div>
@@ -90,7 +90,7 @@
             </div>
         </div>
 
-        <!-- Atenciones por Colaborador -->
+
         <div class="card">
             <h4>Rendimiento de Atenciones por Colaborador</h4>
             <div class="table-responsive">
@@ -109,7 +109,7 @@
             </div>
         </div>
 
-        <!-- Historial Detallado -->
+
         <div class="card">
             <h4>Bitácora de Historial Detallado</h4>
             <div class="d-flex justify-content-end mb-3">
@@ -237,7 +237,7 @@
 
         function aplicarFiltroGlobal() {
             let fechaSeleccionada = document.getElementById("filtroFechaGlobal").value;
-            // Recarga la página enviando la fecha para sincronizar la tabla detallada y el gráfico
+
             if (fechaSeleccionada) {
                 window.location.href = '/historial?fecha=' + fechaSeleccionada;
             } else {
