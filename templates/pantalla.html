@@ -206,7 +206,6 @@
         const slides = document.querySelectorAll('.media-slide');
         let currentSlideIndex = 0;
 
-        // Rotación automática entre las 8 fotos cada 30 segundos en bucle continuo
         setInterval(() => {
             slides[currentSlideIndex].classList.remove('active');
             currentSlideIndex = (currentSlideIndex + 1) % slides.length;
@@ -233,7 +232,6 @@
             window.speechSynthesis.onvoiceschanged = cargarVoces;
         }
 
-        // Recupera los turnos actuales del servidor al cargar la pantalla
         window.onload = function() {
             fetch('/obtener_todos_los_turnos')
                 .then(r => r.json())
@@ -261,7 +259,6 @@
         setInterval(actualizarReloj, 1000);
         actualizarReloj();
 
-        // Monitoreo constante de turnos en segundo plano
         function verificarTurnos() {
             fetch('/obtener_todos_los_turnos?t=' + new Date().getTime())
                 .then(r => r.json())
