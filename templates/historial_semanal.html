@@ -35,7 +35,12 @@
                     <td><strong>#{{ reg.turno }}</strong></td>
                     <td>{{ reg.ventanilla }}</td>
                     <td>{{ reg.dni }}</td>
-                    <td>{{ reg.fecha.strftime('%d/%m/%Y %H:%M:%S') if reg.fecha else '' }}</td>
+                    <td>
+                        {% if reg.fecha %}
+                            {# Compara wenno padasen a iparang no manmano a string wenno datetime object #}
+                            {{ reg.fecha.strftime('%d/%m/%Y %H:%M:%S') if reg.fecha.strftime is defined else reg.fecha }}
+                        {% endif %}
+                    </td>
                 </tr>
                 {% else %}
                 <tr>
