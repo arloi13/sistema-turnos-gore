@@ -232,7 +232,6 @@ def index():
         preferencial = True if request.form.get('preferencial') == 'on' else False
         
         if dni:
-            # Validación segura sin índice compuesto
             docs_dni = list(tickets_ref.where('dni', '==', dni).stream())
             existing = [d for d in docs_dni if d.to_dict().get('estado') == 'ESPERA']
             
@@ -446,7 +445,6 @@ def descargar_sql():
         
         tickets_ref = db.collection('tickets')
         
-        # --- TABLA TICKETS ---
         sql_lines.append("DROP TABLE IF EXISTS tickets;")
         sql_lines.append("CREATE TABLE tickets (")
         sql_lines.append("    id SERIAL PRIMARY KEY,")
@@ -474,7 +472,6 @@ def descargar_sql():
         
         sql_lines.append("\n")
         
-        # --- TABLA HISTORIAL_ATENCIONES ---
         sql_lines.append("DROP TABLE IF EXISTS historial_atenciones;")
         sql_lines.append("CREATE TABLE historial_atenciones (")
         sql_lines.append("    id SERIAL PRIMARY KEY,")
@@ -509,4 +506,3 @@ def descargar_sql():
 if __name__ == '__main__':
     port = int(os.environ.get("PORT", 5000))
     app.run(host='0.0.0.0', port=port)
-# Forzando despliegue limpio Firestore 2026
