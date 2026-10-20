@@ -9,7 +9,6 @@ from firebase_admin import credentials, firestore
 
 app = Flask(__name__)
 
-
 if 'FIREBASE_CREDENTIALS_JSON' in os.environ:
     cred_dict = json.loads(os.environ['FIREBASE_CREDENTIALS_JSON'])
     cred = credentials.Certificate(cred_dict)
@@ -53,13 +52,14 @@ def obtener_estado_colas():
     
     tickets_ref = db.collection('tickets')
     
-    if v_nombre == "Ventanilla 03":
-        docs_espera = list(tickets_ref.where('estado', '==', 'ESPERA').stream())
-    else:
-        docs_espera = list(tickets_ref.where('estado', '==', 'ESPERA').where('preferencial', '==', False).stream())
+    # Consulta de campo único para evitar errores de índice compuesto
+    docs_espera = list(tickets_ref.where('estado', '==', 'ESPERA').stream())
+    cola_espera_dicts = [doc.to_dict() for doc in docs_espera]
     
-    cola_espera = [doc.to_dict() for doc in docs_espera]
-    cola_espera.sort(key=lambda x: x.get('turno', 0))
+    if v_nombre != "Ventanilla 03":
+        cola_espera_dicts = [t for t in cola_espera_dicts if not t.get('preferencial', False)]
+        
+    cola_espera_dicts.sort(key=lambda x: x.get('turno', 0))
     
     docs_archivados = list(tickets_ref.where('estado', '==', 'ARCHIVADO').stream())
     cola_archivados = [doc.to_dict() for doc in docs_archivados]
@@ -69,7 +69,7 @@ def obtener_estado_colas():
     
     return jsonify({
         "turno_actual": turno_actual_activo,
-        "cola_espera": [{"turno": t.get('turno'), "hora": t.get('fecha_registro')} for t in cola_espera],
+        "cola_espera": [{"turno": t.get('turno'), "hora": t.get('fecha_registro')} for t in cola_espera_dicts],
         "cola_archivados": [t.get('turno') for t in cola_archivados]
     })
 
@@ -83,17 +83,19 @@ def actualizar_turno(ventanilla):
         tickets_ref = db.collection('tickets')
         ticket_doc = None
         
+        todos_espera = list(tickets_ref.where('estado', '==', 'ESPERA').stream())
+        
         if v_nombre == "Ventanilla 03" and tipo == 'preferencial':
-            pref_docs = list(tickets_ref.where('estado', '==', 'ESPERA').where('preferencial', '==', True).stream())
+            pref_docs = [d for d in todos_espera if d.to_dict().get('preferencial', False) == True]
             if pref_docs:
                 pref_docs.sort(key=lambda d: d.to_dict().get('turno', 0))
                 ticket_doc = pref_docs[0]
         
         if not ticket_doc:
             if v_nombre == "Ventanilla 03":
-                esp_docs = list(tickets_ref.where('estado', '==', 'ESPERA').stream())
+                esp_docs = todos_espera
             else:
-                esp_docs = list(tickets_ref.where('estado', '==', 'ESPERA').where('preferencial', '==', False).stream())
+                esp_docs = [d for d in todos_espera if d.to_dict().get('preferencial', False) == False]
             
             if esp_docs:
                 esp_docs.sort(key=lambda d: d.to_dict().get('turno', 0))
@@ -130,8 +132,8 @@ def actualizar_turno(ventanilla):
 
 @app.route('/estadisticas', methods=['GET'])
 def estadisticas():
-    filtro = request.args.get('filtro') # 'dia', 'mes', o vacío/historico
-    fecha_personalizada = request.args.get('fecha') # Formato YYYY-MM-DD
+    filtro = request.args.get('filtro')
+    fecha_personalizada = request.args.get('fecha')
     
     now_peru = obtener_tiempo_peru()
     hoy_str = now_peru.strftime("%Y-%m-%d")
@@ -230,12 +232,23 @@ def index():
         preferencial = True if request.form.get('preferencial') == 'on' else False
         
         if dni:
-            existing = list(tickets_ref.where('dni', '==', dni).where('estado', '==', 'ESPERA').stream())
+            # Validación segura sin índice compuesto
+            docs_dni = list(tickets_ref.where('dni', '==', dni).stream())
+            existing = [d for d in docs_dni if d.to_dict().get('estado') == 'ESPERA']
+            
             if not existing:
-                ultimos_turnos = list(tickets_ref.order_by('turno', direction=firestore.Query.DESCENDING).limit(1).stream())
-                max_t = 0
-                if ultimos_turnos:
-                    max_t = ultimos_turnos[0].to_dict().get('turno', 0)
+                try:
+                    ultimos_turnos = list(tickets_ref.order_by('turno', direction=firestore.Query.DESCENDING).limit(1).stream())
+                    max_t = 0
+                    if ultimos_turnos:
+                        max_t = ultimos_turnos[0].to_dict().get('turno', 0)
+                except Exception:
+                    all_t = list(tickets_ref.stream())
+                    max_t = 0
+                    for t_doc in all_t:
+                        val = t_doc.to_dict().get('turno', 0)
+                        if isinstance(val, int) and val > max_t:
+                            max_t = val
                 
                 nuevo_turno = max_t + 1
                 
@@ -271,12 +284,22 @@ def registro():
         preferencial = True if request.form.get('preferencial') == 'on' else False
         
         if dni:
-            existing = list(tickets_ref.where('dni', '==', dni).where('estado', '==', 'ESPERA').stream())
+            docs_dni = list(tickets_ref.where('dni', '==', dni).stream())
+            existing = [d for d in docs_dni if d.to_dict().get('estado') == 'ESPERA']
+            
             if not existing:
-                ultimos_turnos = list(tickets_ref.order_by('turno', direction=firestore.Query.DESCENDING).limit(1).stream())
-                max_t = 0
-                if ultimos_turnos:
-                    max_t = ultimos_turnos[0].to_dict().get('turno', 0)
+                try:
+                    ultimos_turnos = list(tickets_ref.order_by('turno', direction=firestore.Query.DESCENDING).limit(1).stream())
+                    max_t = 0
+                    if ultimos_turnos:
+                        max_t = ultimos_turnos[0].to_dict().get('turno', 0)
+                except Exception:
+                    all_t = list(tickets_ref.stream())
+                    max_t = 0
+                    for t_doc in all_t:
+                        val = t_doc.to_dict().get('turno', 0)
+                        if isinstance(val, int) and val > max_t:
+                            max_t = val
                 
                 nuevo_turno = max_t + 1
                 
@@ -326,15 +349,18 @@ def repetir_turno(ventanilla):
         archivado = False
         tickets_ref = db.collection('tickets')
         if intentos > 3:
-            t_docs = list(tickets_ref.where('turno', '==', turno_actual).where('estado', '==', 'ATENDIDO').stream())
+            all_atendidos = list(tickets_ref.where('estado', '==', 'ATENDIDO').stream())
+            t_docs = [d for d in all_atendidos if d.to_dict().get('turno') == turno_actual]
+            
             for t_doc in t_docs:
                 tickets_ref.document(t_doc.id).update({'estado': 'ARCHIVADO'})
             archivado = True
             
+            todos_espera = list(tickets_ref.where('estado', '==', 'ESPERA').stream())
             if v_nombre == "Ventanilla 03":
-                esp_docs = list(tickets_ref.where('estado', '==', 'ESPERA').stream())
+                esp_docs = todos_espera
             else:
-                esp_docs = list(tickets_ref.where('estado', '==', 'ESPERA').where('preferencial', '==', False).stream())
+                esp_docs = [d for d in todos_espera if d.to_dict().get('preferencial', False) == False]
                 
             if esp_docs:
                 esp_docs.sort(key=lambda d: d.to_dict().get('turno', 0))
