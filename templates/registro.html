@@ -2,6 +2,7 @@
 <html lang="es">
 <head>
     <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Registro - GORE Cajamarca</title>
     <link rel="stylesheet" href="https://stackpath.bootstrapcdn.com/bootstrap/4.5.2/css/bootstrap.min.css">
     <style>
@@ -15,18 +16,31 @@
         {% if mensaje %}
             <div class="alert alert-success">{{ mensaje }}</div>
         {% endif %}
-        <form method="POST">
+        <!-- Añadimos id="formRegistro" -->
+        <form method="POST" id="formRegistro">
             <div class="form-group">
                 <label>Ingrese su DNI:</label>
-                <input type="text" class="form-control" name="dni" required maxlength="8" placeholder="Ej: 12345678">
+                <input type="text" class="form-control" name="dni" required pattern="\d{8}" maxlength="8" placeholder="Ej: 12345678" autofocus>
             </div>
             <div class="form-group form-check my-3">
                 <input type="checkbox" class="form-check-input" id="preferencial" name="preferencial">
                 <label class="form-check-label" for="preferencial">¿Es turno preferencial?</label>
             </div>
-            <button type="submit" class="btn btn-primary btn-block">Generar Turno</button>
+            <!-- Añadimos id="btnGenerar" -->
+            <button type="submit" id="btnGenerar" class="btn btn-primary btn-block">Generar Turno</button>
         </form>
         <a href="/registro" class="btn btn-link btn-block mt-2">Limpiar formulario</a>
     </div>
+
+    <script>
+        // Protección contra doble clic para evitar registros duplicados
+        document.getElementById('formRegistro').addEventListener('submit', function(e) {
+            let btn = document.getElementById('btnGenerar');
+            if (btn) {
+                btn.disabled = true;
+                btn.innerText = "Generando turno...";
+            }
+        });
+    </script>
 </body>
 </html>
