@@ -2,6 +2,7 @@
 <html lang="es">
 <head>
     <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Historial y Estadísticas - GORE Cajamarca</title>
     <link rel="stylesheet" href="https://stackpath.bootstrapcdn.com/bootstrap/4.5.2/css/bootstrap.min.css">
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600;700;800&display=swap" rel="stylesheet">
@@ -48,7 +49,7 @@
         }
         h4 { color: var(--azul-gore); text-align: center; font-weight: 700; margin-bottom: 10px; }
         .subtitulo-filtro { text-align: center; font-size: 0.9rem; color: #6c757d; margin-bottom: 20px; }
-        .controles { margin: 20px 0 15px 0; text-align: center; display: flex; justify-content: center; align-items: center; gap: 15px; flex-wrap: wrap; }
+        .controles { margin: 10px 0; text-align: center; display: flex; justify-content: center; align-items: center; gap: 15px; flex-wrap: wrap; }
         table { width: 100%; border-collapse: collapse; background: white; box-shadow: 0 0 10px rgba(0,0,0,0.05); border-radius: 8px; overflow: hidden; }
         th, td { padding: 12px 15px; border: 1px solid #dee2e6; text-align: center; vertical-align: middle !important; }
         th { background-color: var(--azul-gore); color: white; font-weight: 600; }
@@ -75,12 +76,11 @@
         <!-- Controles globales de Fecha para Gráficos y Tablas -->
         <div class="card shadow-sm bg-white">
             <div class="controles m-0">
-                <label for="filtroFechaGlobal" class="font-weight-bold mb-0 text-dark"><i class="bi bi-calendar"></i> Seleccionar Fecha de Análisis: </label>
+                <label for="filtroFechaGlobal" class="font-weight-bold mb-0 text-dark">📅 Seleccionar Fecha de Análisis: </label>
                 <input type="date" id="filtroFechaGlobal" class="form-control w-auto d-inline-block font-weight-bold text-primary" value="{{ fecha_filtro if fecha_filtro else '' }}" onchange="aplicarFiltroGlobal()">
                 <button class="btn btn-outline-primary btn-sm px-3" onclick="limpiarFiltroGlobal()">Ver Histórico Completo</button>
             </div>
         </div>
-
 
         <div class="card">
             <h4>Comparativa de Atenciones por Ventanilla</h4>
@@ -89,7 +89,6 @@
                 <canvas id="graficoVentanillas"></canvas>
             </div>
         </div>
-
 
         <div class="card">
             <h4>Rendimiento de Atenciones por Colaborador</h4>
@@ -109,11 +108,10 @@
             </div>
         </div>
 
-
         <div class="card">
             <h4>Bitácora de Historial Detallado</h4>
             <div class="d-flex justify-content-end mb-3">
-                <button class="btn-export" onclick="exportarExcel('tabla-historial', 'Historial_Atenciones')">Exportar a Excel (.xls)</button>
+                <button class="btn-export" onclick="exportarExcel('tabla-historial', 'Historial_Atenciones')">📊 Exportar a Excel (.xls)</button>
             </div>
             
             <div class="table-responsive">
@@ -132,7 +130,7 @@
                             {% for registro in registros %}
                             <tr>
                                 <td><small class="text-muted">{{ registro.id }}</small></td>
-                                <td><strong>{{ registro.turno }}</strong></td>
+                                <td><strong>#{{ registro.turno }}</strong></td>
                                 <td>{{ registro.ventanilla }}</td>
                                 <td>{{ registro.dni }}</td>
                                 <td class="fecha-celda">{{ registro.fecha }}</td>
@@ -180,23 +178,24 @@
                     let labels = [];
                     let totales = [];
 
-                    if (data.length === 0) {
+                    if (!data || data.length === 0) {
                         tbody.innerHTML = `<tr><td colspan="3" class="text-center text-muted">No hay atenciones registradas para esta fecha</td></tr>`;
+                    } else {
+                        data.forEach(item => {
+                            tbody.innerHTML += `<tr>
+                                <td>${item.colaborador || 'N/A'}</td>
+                                <td>${item.ventanilla}</td>
+                                <td><strong>${item.total}</strong></td>
+                            </tr>`;
+
+                            labels.push(item.ventanilla);
+                            totales.push(item.total);
+                        });
                     }
 
-                    data.forEach(item => {
-                        tbody.innerHTML += `<tr>
-                            <td>${item.colaborador || 'N/A'}</td>
-                            <td>${item.ventanilla}</td>
-                            <td><strong>${item.total}</strong></td>
-                        </tr>`;
-
-                        labels.push(item.ventanilla);
-                        totales.push(item.total);
-                    });
-
                     actualizarGrafico(labels, totales);
-                });
+                })
+                .catch(err => console.error("Error al cargar estadísticas:", err));
         }
 
         function actualizarGrafico(labels, data) {
@@ -251,8 +250,9 @@
 
         function exportarExcel(idTabla, nombreArchivo) {
             let tabla = document.getElementById(idTabla);
-            let html = '<table>' + tabla.innerHTML + '</table>';
-            let url = 'data:application/vnd.ms-excel,' + encodeURIComponent(html);
+            let html = '\uFEFF' + '<table>' + tabla.innerHTML + '</table>'; // \uFEFF añade compatibilidad UTF-8 a Excel
+            let blob = new Blob([html], { type: 'application/vnd.ms-excel;charset=utf-8' });
+            let url = URL.createObjectURL(blob);
             let link = document.createElement('a');
             link.download = nombreArchivo + '.xls';
             link.href = url;
