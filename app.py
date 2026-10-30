@@ -229,27 +229,22 @@ def index():
         preferencial = True if request.form.get('preferencial') == 'on' else False
         
         if dni:
-            try:
-                existing = Ticket.query.filter_by(dni=dni, estado='ESPERA').first()
+            existing = Ticket.query.filter_by(dni=dni, estado='ESPERA').first()
+            
+            if not existing:
+                max_t = db.session.query(db.func.max(Ticket.turno)).scalar() or 0
+                nuevo_turno = max_t + 1
                 
-                if not existing:
-                    # Bloqueo de fila para evitar saltos o duplicidad de turnos
-                    max_t = db.session.query(db.func.max(Ticket.turno)).with_for_update().scalar() or 0
-                    nuevo_turno = max_t + 1
-                    
-                    nuevo_ticket = Ticket(
-                        dni=dni,
-                        nombre="Ciudadano",
-                        fecha_registro=obtener_tiempo_peru().strftime("%d/%m/%Y %H:%M"),
-                        estado='ESPERA',
-                        turno=nuevo_turno,
-                        preferencial=preferencial
-                    )
-                    db.session.add(nuevo_ticket)
-                    db.session.commit()
-            except Exception as e:
-                db.session.rollback()
-                print(f"Error al registrar turno: {e}")
+                nuevo_ticket = Ticket(
+                    dni=dni,
+                    nombre="Ciudadano",
+                    fecha_registro=obtener_tiempo_peru().strftime("%d/%m/%Y %H:%M"),
+                    estado='ESPERA',
+                    turno=nuevo_turno,
+                    preferencial=preferencial
+                )
+                db.session.add(nuevo_ticket)
+                db.session.commit()
                 
         return redirect('/')
     
@@ -263,27 +258,22 @@ def registro():
         preferencial = True if request.form.get('preferencial') == 'on' else False
         
         if dni:
-            try:
-                existing = Ticket.query.filter_by(dni=dni, estado='ESPERA').first()
+            existing = Ticket.query.filter_by(dni=dni, estado='ESPERA').first()
+            
+            if not existing:
+                max_t = db.session.query(db.func.max(Ticket.turno)).scalar() or 0
+                nuevo_turno = max_t + 1
                 
-                if not existing:
-                    # Bloqueo de fila para mantener la secuencia exacta
-                    max_t = db.session.query(db.func.max(Ticket.turno)).with_for_update().scalar() or 0
-                    nuevo_turno = max_t + 1
-                    
-                    nuevo_ticket = Ticket(
-                        dni=dni,
-                        nombre="Ciudadano",
-                        fecha_registro=obtener_tiempo_peru().strftime("%d/%m/%Y %H:%M"),
-                        estado='ESPERA',
-                        turno=nuevo_turno,
-                        preferencial=preferencial
-                    )
-                    db.session.add(nuevo_ticket)
-                    db.session.commit()
-            except Exception as e:
-                db.session.rollback()
-                print(f"Error al registrar turno: {e}")
+                nuevo_ticket = Ticket(
+                    dni=dni,
+                    nombre="Ciudadano",
+                    fecha_registro=obtener_tiempo_peru().strftime("%d/%m/%Y %H:%M"),
+                    estado='ESPERA',
+                    turno=nuevo_turno,
+                    preferencial=preferencial
+                )
+                db.session.add(nuevo_ticket)
+                db.session.commit()
                 
         return redirect('/registro?exito=1')
     
