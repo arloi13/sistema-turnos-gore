@@ -124,10 +124,11 @@ def actualizar_turno(ventanilla):
         
         ticket_obj.estado = 'ATENDIDO'
         
+        # Hora exacta de Perú forzada
         nuevo_historial = HistorialAtencion(
             ventanilla=v_nombre,
             turno=turno_real,
-            fecha=obtener_tiempo_peru().replace(tzinfo=None).strftime("%Y-%m-%d %H:%M:%S"),
+            fecha=obtener_tiempo_peru().strftime("%Y-%m-%d %H:%M:%S"),
             dni=dni_ciudadano
         )
         db.session.add(nuevo_historial)
@@ -342,7 +343,7 @@ def repetir_turno(ventanilla):
                 nuevo_historial = HistorialAtencion(
                     ventanilla=v_nombre,
                     turno=siguiente_doc.turno,
-                    fecha=obtener_tiempo_peru().replace(tzinfo=None).strftime("%Y-%m-%d %H:%M:%S"),
+                    fecha=obtener_tiempo_peru().strftime("%Y-%m-%d %H:%M:%S"),
                     dni=siguiente_doc.dni
                 )
                 db.session.add(nuevo_historial)
@@ -427,7 +428,7 @@ def descargar_sql():
         sql_lines.append("    id SERIAL PRIMARY KEY,")
         sql_lines.append("    ventanilla VARCHAR(100),")
         sql_lines.append("    turno INTEGER,")
-        sql_lines.append("    fecha TIMESTAMP,")
+        sql_lines.append("    fecha VARCHAR(50),")
         sql_lines.append("    dni VARCHAR(50)")
         sql_lines.append(");\n")
         
