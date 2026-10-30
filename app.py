@@ -4,21 +4,38 @@ from flask import Flask, render_template, request, redirect, jsonify, Response
 from datetime import datetime
 from zoneinfo import ZoneInfo
 from urllib.parse import unquote
-import firebase_admin
-from firebase_admin import credentials, firestore
+from flask_sqlalchemy import SQLAlchemy
 
 app = Flask(__name__)
 
-if 'FIREBASE_CREDENTIALS_JSON' in os.environ:
-    cred_dict = json.loads(os.environ['FIREBASE_CREDENTIALS_JSON'])
-    cred = credentials.Certificate(cred_dict)
-else:
-    cred = credentials.Certificate("firebase-key.json")
+# Configuración de la base de datos PostgreSQL en Render
+app.config['SQLALCHEMY_DATABASE_URI'] = os.environ.get('DATABASE_URL')
+app.config['SQLALCHEMY_TRACK_MODIFICATIONS'] = False
 
-if not firebase_admin._apps:
-    firebase_admin.initialize_app(cred)
+db = SQLAlchemy(app)
 
-db = firestore.client()
+# Modelos de la base de datos relacional (PostgreSQL)
+class Ticket(db.Model):
+    __tablename__ = 'tickets'
+    id = db.Column(db.Integer, primary_key=True)
+    dni = db.Column(db.String(50))
+    nombre = db.Column(db.String(100), default="Ciudadano")
+    fecha_registro = db.Column(db.String(50))
+    estado = db.Column(db.String(50), default='ESPERA')
+    turno = db.Column(db.Integer)
+    preferencial = db.Column(db.Boolean, default=False)
+
+class HistorialAtencion(db.Model):
+    __tablename__ = 'historial_atenciones'
+    id = db.Column(db.Integer, primary_key=True)
+    ventanilla = db.Column(db.String(100))
+    turno = db.Column(db.Integer)
+    fecha = db.Column(db.String(50))
+    dni = db.Column(db.String(50))
+
+# Crear las tablas automáticamente si no existen al iniciar
+with app.app_context():
+    db.create_all()
 
 # Zona horaria nativa para Perú
 PERU_TZ = ZoneInfo("America/Lima")
@@ -50,27 +67,27 @@ def obtener_estado_colas():
     v_nombre = request.args.get('ventanilla', 'Ventanilla 02')
     v_nombre = unquote(v_nombre)
     
-    tickets_ref = db.collection('tickets')
-    
-    # Consulta de campo único para evitar errores de índice compuesto
-    docs_espera = list(tickets_ref.where('estado', '==', 'ESPERA').stream())
-    cola_espera_dicts = [doc.to_dict() for doc in docs_espera]
+    docs_espera = Ticket.query.filter_by(estado='ESPERA').all()
+    cola_espera_dicts = [{
+        'turno': t.turno,
+        'fecha_registro': t.fecha_registro,
+        'preferencial': t.preferencial
+    } for t in docs_espera]
     
     if v_nombre != "Ventanilla 03":
         cola_espera_dicts = [t for t in cola_espera_dicts if not t.get('preferencial', False)]
         
     cola_espera_dicts.sort(key=lambda x: x.get('turno', 0))
     
-    docs_archivados = list(tickets_ref.where('estado', '==', 'ARCHIVADO').stream())
-    cola_archivados = [doc.to_dict() for doc in docs_archivados]
-    cola_archivados.sort(key=lambda x: x.get('turno', 0))
+    docs_archivados = Ticket.query.filter_by(estado='ARCHIVADO').order_by(Ticket.turno.asc()).all()
+    cola_archivados = [t.turno for t in docs_archivados]
     
     turno_actual_activo = estado_visual.get(v_nombre, 0)
     
     return jsonify({
         "turno_actual": turno_actual_activo,
         "cola_espera": [{"turno": t.get('turno'), "hora": t.get('fecha_registro')} for t in cola_espera_dicts],
-        "cola_archivados": [t.get('turno') for t in cola_archivados]
+        "cola_archivados": cola_archivados
     })
 
 @app.route('/actualizar_turno/<ventanilla>', methods=['GET', 'POST'])
@@ -80,44 +97,41 @@ def actualizar_turno(ventanilla):
     
     if v_nombre in estado_visual:
         tipo = request.args.get('tipo', 'normal')
-        tickets_ref = db.collection('tickets')
-        ticket_doc = None
+        ticket_obj = None
         
-        todos_espera = list(tickets_ref.where('estado', '==', 'ESPERA').stream())
+        todos_espera = Ticket.query.filter_by(estado='ESPERA').order_by(Ticket.turno.asc()).all()
         
         if v_nombre == "Ventanilla 03" and tipo == 'preferencial':
-            pref_docs = [d for d in todos_espera if d.to_dict().get('preferencial', False) == True]
+            pref_docs = [t for t in todos_espera if t.preferencial]
             if pref_docs:
-                pref_docs.sort(key=lambda d: d.to_dict().get('turno', 0))
-                ticket_doc = pref_docs[0]
+                ticket_obj = pref_docs[0]
         
-        if not ticket_doc:
+        if not ticket_obj:
             if v_nombre == "Ventanilla 03":
                 esp_docs = todos_espera
             else:
-                esp_docs = [d for d in todos_espera if d.to_dict().get('preferencial', False) == False]
+                esp_docs = [t for t in todos_espera if not t.preferencial]
             
             if esp_docs:
-                esp_docs.sort(key=lambda d: d.to_dict().get('turno', 0))
-                ticket_doc = esp_docs[0]
+                ticket_obj = esp_docs[0]
         
-        if not ticket_doc:
+        if not ticket_obj:
             return jsonify({"status": "vacio"}), 200
         
-        ticket_id = ticket_doc.id
-        ticket_data = ticket_doc.to_dict()
-        turno_real = ticket_data.get('turno')
-        dni_ciudadano = ticket_data.get('dni')
-        es_pref = ticket_data.get('preferencial', False)
+        turno_real = ticket_obj.turno
+        dni_ciudadano = ticket_obj.dni
+        es_pref = ticket_obj.preferencial
         
-        tickets_ref.document(ticket_id).update({'estado': 'ATENDIDO'})
+        ticket_obj.estado = 'ATENDIDO'
         
-        db.collection('historial_atenciones').add({
-            'ventanilla': v_nombre,
-            'turno': turno_real,
-            'fecha': obtener_tiempo_peru().replace(tzinfo=None).strftime("%Y-%m-%d %H:%M:%S"),
-            'dni': dni_ciudadano
-        })
+        nuevo_historial = HistorialAtencion(
+            ventanilla=v_nombre,
+            turno=turno_real,
+            fecha=obtener_tiempo_peru().replace(tzinfo=None).strftime("%Y-%m-%d %H:%M:%S"),
+            dni=dni_ciudadano
+        )
+        db.session.add(nuevo_historial)
+        db.session.commit()
         
         estado_visual[v_nombre] = turno_real
         llamados_actuales[v_nombre] = {"turno": turno_real, "intentos": 1}
@@ -139,13 +153,12 @@ def estadisticas():
     hoy_str = now_peru.strftime("%Y-%m-%d")
     mes_str = now_peru.strftime("%Y-%m")
     
-    historial_docs = db.collection('historial_atenciones').stream()
+    historial_docs = HistorialAtencion.query.all()
     conteo = {}
     
-    for doc in historial_docs:
-        d = doc.to_dict()
-        fecha_str = str(d.get('fecha', ''))
-        vent = d.get('ventanilla')
+    for d in historial_docs:
+        fecha_str = str(d.fecha or '')
+        vent = d.ventanilla
         if not vent:
             continue
         
@@ -172,28 +185,12 @@ def estadisticas():
 def historial():
     try:
         fecha_filtro = request.args.get('fecha')
-        docs = list(db.collection('historial_atenciones').stream())
-        registros = []
+        query = HistorialAtencion.query.order_by(HistorialAtencion.fecha.desc())
         
-        for doc in docs:
-            d = doc.to_dict()
-            fecha_str = str(d.get('fecha', ''))
+        registros = query.all()
+        if fecha_filtro:
+            registros = [r for r in registros if str(r.fecha).split(" ")[0] == fecha_filtro]
             
-            if fecha_filtro:
-                solo_fecha = fecha_str.split(" ")[0] if " " in fecha_str else fecha_str
-                if solo_fecha != fecha_filtro:
-                    continue
-            
-            class Record:
-                def __init__(self, data, doc_id):
-                    self.id = doc_id
-                    self.ventanilla = data.get('ventanilla')
-                    self.turno = data.get('turno')
-                    self.fecha = data.get('fecha')
-                    self.dni = data.get('dni')
-            registros.append(Record(d, doc.id))
-            
-        registros.sort(key=lambda x: str(x.fecha), reverse=True)
         return render_template('historial.html', registros=registros, fecha_filtro=fecha_filtro or "")
     except Exception as e:
         return render_template('historial.html', registros=[], fecha_filtro="")
@@ -226,90 +223,55 @@ def resetear_turnos():
 
 @app.route('/', methods=['GET', 'POST'])
 def index():
-    tickets_ref = db.collection('tickets')
     if request.method == 'POST':
         dni = request.form.get('dni', '').strip()
         preferencial = True if request.form.get('preferencial') == 'on' else False
         
         if dni:
-            docs_dni = list(tickets_ref.where('dni', '==', dni).stream())
-            existing = [d for d in docs_dni if d.to_dict().get('estado') == 'ESPERA']
+            existing = Ticket.query.filter_by(dni=dni, estado='ESPERA').first()
             
             if not existing:
-                try:
-                    ultimos_turnos = list(tickets_ref.order_by('turno', direction=firestore.Query.DESCENDING).limit(1).stream())
-                    max_t = 0
-                    if ultimos_turnos:
-                        max_t = ultimos_turnos[0].to_dict().get('turno', 0)
-                except Exception:
-                    all_t = list(tickets_ref.stream())
-                    max_t = 0
-                    for t_doc in all_t:
-                        val = t_doc.to_dict().get('turno', 0)
-                        if isinstance(val, int) and val > max_t:
-                            max_t = val
-                
+                max_t = db.session.query(db.func.max(Ticket.turno)).scalar() or 0
                 nuevo_turno = max_t + 1
                 
-                tickets_ref.add({
-                    'dni': dni,
-                    'nombre': "Ciudadano",
-                    'fecha_registro': obtener_tiempo_peru().strftime("%d/%m/%Y %H:%M"),
-                    'estado': 'ESPERA',
-                    'turno': nuevo_turno,
-                    'preferencial': preferencial
-                })
+                nuevo_ticket = Ticket(
+                    dni=dni,
+                    nombre="Ciudadano",
+                    fecha_registro=obtener_tiempo_peru().strftime("%d/%m/%Y %H:%M"),
+                    estado='ESPERA',
+                    turno=nuevo_turno,
+                    preferencial=preferencial
+                )
+                db.session.add(nuevo_ticket)
+                db.session.commit()
         return redirect('/')
     
-    docs_esp = list(tickets_ref.where('estado', '==', 'ESPERA').stream())
-    tickets = []
-    for doc in docs_esp:
-        d = doc.to_dict()
-        class TicketObj:
-            def __init__(self, data):
-                self.turno = data.get('turno')
-                self.fecha_registro = data.get('fecha_registro')
-                self.dni = data.get('dni')
-                self.preferencial = data.get('preferencial', False)
-        tickets.append(TicketObj(d))
-    tickets.sort(key=lambda x: x.turno)
+    tickets = Ticket.query.filter_by(estado='ESPERA').order_by(Ticket.turno.asc()).all()
     return render_template('index.html', tickets=tickets)
 
 @app.route('/registro', methods=['GET', 'POST'])
 def registro():
-    tickets_ref = db.collection('tickets')
     if request.method == 'POST':
         dni = request.form.get('dni', '').strip()
         preferencial = True if request.form.get('preferencial') == 'on' else False
         
         if dni:
-            docs_dni = list(tickets_ref.where('dni', '==', dni).stream())
-            existing = [d for d in docs_dni if d.to_dict().get('estado') == 'ESPERA']
+            existing = Ticket.query.filter_by(dni=dni, estado='ESPERA').first()
             
             if not existing:
-                try:
-                    ultimos_turnos = list(tickets_ref.order_by('turno', direction=firestore.Query.DESCENDING).limit(1).stream())
-                    max_t = 0
-                    if ultimos_turnos:
-                        max_t = ultimos_turnos[0].to_dict().get('turno', 0)
-                except Exception:
-                    all_t = list(tickets_ref.stream())
-                    max_t = 0
-                    for t_doc in all_t:
-                        val = t_doc.to_dict().get('turno', 0)
-                        if isinstance(val, int) and val > max_t:
-                            max_t = val
-                
+                max_t = db.session.query(db.func.max(Ticket.turno)).scalar() or 0
                 nuevo_turno = max_t + 1
                 
-                tickets_ref.add({
-                    'dni': dni,
-                    'nombre': "Ciudadano",
-                    'fecha_registro': obtener_tiempo_peru().strftime("%d/%m/%Y %H:%M"),
-                    'estado': 'ESPERA',
-                    'turno': nuevo_turno,
-                    'preferencial': preferencial
-                })
+                nuevo_ticket = Ticket(
+                    dni=dni,
+                    nombre="Ciudadano",
+                    fecha_registro=obtener_tiempo_peru().strftime("%d/%m/%Y %H:%M"),
+                    estado='ESPERA',
+                    turno=nuevo_turno,
+                    preferencial=preferencial
+                )
+                db.session.add(nuevo_ticket)
+                db.session.commit()
         return redirect('/registro?exito=1')
     
     mensaje = "¡Turno generado con éxito!" if request.args.get('exito') else None
@@ -346,37 +308,33 @@ def repetir_turno(ventanilla):
         intentos = llamados_actuales[v_nombre]["intentos"]
         
         archivado = False
-        tickets_ref = db.collection('tickets')
         if intentos > 3:
-            all_atendidos = list(tickets_ref.where('estado', '==', 'ATENDIDO').stream())
-            t_docs = [d for d in all_atendidos if d.to_dict().get('turno') == turno_actual]
-            
+            t_docs = Ticket.query.filter_by(estado='ATENDIDO', turno=turno_actual).all()
             for t_doc in t_docs:
-                tickets_ref.document(t_doc.id).update({'estado': 'ARCHIVADO'})
+                t_doc.estado = 'ARCHIVADO'
+            db.session.commit()
             archivado = True
             
-            todos_espera = list(tickets_ref.where('estado', '==', 'ESPERA').stream())
+            todos_espera = Ticket.query.filter_by(estado='ESPERA').order_by(Ticket.turno.asc()).all()
             if v_nombre == "Ventanilla 03":
                 esp_docs = todos_espera
             else:
-                esp_docs = [d for d in todos_espera if d.to_dict().get('preferencial', False) == False]
+                esp_docs = [t for t in todos_espera if not t.preferencial]
                 
             if esp_docs:
-                esp_docs.sort(key=lambda d: d.to_dict().get('turno', 0))
                 siguiente_doc = esp_docs[0]
-                siguiente_id = siguiente_doc.id
-                siguiente_data = siguiente_doc.to_dict()
+                siguiente_doc.estado = 'ATENDIDO'
+                estado_visual[v_nombre] = siguiente_doc.turno
+                llamados_actuales[v_nombre] = {"turno": siguiente_doc.turno, "intentos": 1}
                 
-                tickets_ref.document(siguiente_id).update({'estado': 'ATENDIDO'})
-                estado_visual[v_nombre] = siguiente_data.get('turno')
-                llamados_actuales[v_nombre] = {"turno": siguiente_data.get('turno'), "intentos": 1}
-                
-                db.collection('historial_atenciones').add({
-                    'ventanilla': v_nombre,
-                    'turno': siguiente_data.get('turno'),
-                    'fecha': obtener_tiempo_peru().replace(tzinfo=None).strftime("%Y-%m-%d %H:%M:%S"),
-                    'dni': siguiente_data.get('dni')
-                })
+                nuevo_historial = HistorialAtencion(
+                    ventanilla=v_nombre,
+                    turno=siguiente_doc.turno,
+                    fecha=obtener_tiempo_peru().replace(tzinfo=None).strftime("%Y-%m-%d %H:%M:%S"),
+                    dni=siguiente_doc.dni
+                )
+                db.session.add(nuevo_historial)
+                db.session.commit()
             else:
                 estado_visual[v_nombre] = 0
                 llamados_actuales[v_nombre] = {"turno": 0, "intentos": 0}
@@ -401,19 +359,7 @@ def pantalla():
 @app.route('/historial_semanal', methods=['GET'])
 def historial_semanal():
     try:
-        docs = list(db.collection('historial_atenciones').stream())
-        registros = []
-        for doc in docs:
-            d = doc.to_dict()
-            class Record:
-                def __init__(self, data, doc_id):
-                    self.id = doc_id
-                    self.ventanilla = data.get('ventanilla')
-                    self.turno = data.get('turno')
-                    self.fecha = data.get('fecha')
-                    self.dni = data.get('dni')
-            registros.append(Record(d, doc.id))
-        registros.sort(key=lambda x: str(x.fecha), reverse=True)
+        registros = HistorialAtencion.query.order_by(HistorialAtencion.fecha.desc()).all()
         return render_template('historial_semanal.html', registros=registros)
     except Exception as e:
         return render_template('historial_semanal.html', registros=[])
@@ -428,11 +374,11 @@ def limpiar_db():
             "Ventanilla 02": {"turno": 0, "intentos": 0},
             "Ventanilla 03": {"turno": 0, "intentos": 0}
         }
-        tickets_docs = db.collection('tickets').stream()
-        for doc in tickets_docs:
-            db.collection('tickets').document(doc.id).delete()
+        Ticket.query.delete()
+        db.session.commit()
         return "¡Contadores en 0 y tickets de la semana reiniciados con éxito! El historial de atenciones se mantiene intacto."
     except Exception as e:
+        db.session.rollback()
         return f"Error: {e}"
 
 @app.route('/descargar_sql', methods=['GET'])
@@ -440,11 +386,10 @@ def descargar_sql():
     try:
         sql_lines = []
         sql_lines.append("-- --------------------------------------------------------")
-        sql_lines.append("-- Respaldo directo desde la aplicación en Render (Firestore)")
+        sql_lines.append("-- Respaldo directo desde la aplicación en Render (PostgreSQL)")
         sql_lines.append("-- --------------------------------------------------------\n")
         
-        tickets_ref = db.collection('tickets')
-        
+        tickets = Ticket.query.all()
         sql_lines.append("DROP TABLE IF EXISTS tickets;")
         sql_lines.append("CREATE TABLE tickets (")
         sql_lines.append("    id SERIAL PRIMARY KEY,")
@@ -456,22 +401,15 @@ def descargar_sql():
         sql_lines.append("    preferencial BOOLEAN")
         sql_lines.append(");\n")
         
-        for doc in tickets_ref.stream():
-            d = doc.to_dict()
-            dni = str(d.get('dni', ''))
-            nombre = str(d.get('nombre', 'Ciudadano'))
-            fecha_reg = str(d.get('fecha_registro', ''))
-            estado = str(d.get('estado', ''))
-            turno = int(d.get('turno', 0))
-            preferencial = 'TRUE' if d.get('preferencial', False) else 'FALSE'
-            
+        for t in tickets:
+            preferencial = 'TRUE' if t.preferencial else 'FALSE'
             sql_lines.append(
                 f"INSERT INTO tickets (dni, nombre, fecha_registro, estado, turno, preferencial) "
-                f"VALUES ('{dni}', '{nombre}', '{fecha_reg}', '{estado}', {turno}, {preferencial});"
+                f"VALUES ('{t.dni}', '{t.nombre}', '{t.fecha_registro}', '{t.estado}', {t.turno}, {preferencial});"
             )
         
         sql_lines.append("\n")
-        
+        historiales = HistorialAtencion.query.all()
         sql_lines.append("DROP TABLE IF EXISTS historial_atenciones;")
         sql_lines.append("CREATE TABLE historial_atenciones (")
         sql_lines.append("    id SERIAL PRIMARY KEY,")
@@ -481,16 +419,10 @@ def descargar_sql():
         sql_lines.append("    dni VARCHAR(50)")
         sql_lines.append(");\n")
         
-        for doc in db.collection('historial_atenciones').stream():
-            d = doc.to_dict()
-            ventanilla = str(d.get('ventanilla', ''))
-            turno = int(d.get('turno', 0))
-            fecha = str(d.get('fecha', ''))
-            dni = str(d.get('dni', ''))
-            
+        for h in historiales:
             sql_lines.append(
                 f"INSERT INTO historial_atenciones (ventanilla, turno, fecha, dni) "
-                f"VALUES ('{ventanilla}', {turno}, '{fecha}', '{dni}');"
+                f"VALUES ('{h.ventanilla}', {h.turno}, '{h.fecha}', '{h.dni}');"
             )
             
         contenido_sql = "\n".join(sql_lines)
@@ -498,7 +430,7 @@ def descargar_sql():
         return Response(
             contenido_sql,
             mimetype="text/sql",
-            headers={"Content-disposition": "attachment; filename=respaldo_turnos.sql"}
+            headers={"Content-disposition": "attachment; filename=respaldo_turnos_postgres.sql"}
         )
     except Exception as e:
         return f"Error al generar el respaldo SQL: {e}", 500
